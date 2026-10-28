@@ -15,6 +15,10 @@ export const LIMITS = {
   rate: 60,
   burst: 160,
   pingMs: 25_000,
+  /** Сколько промахов мимо комнат за окно допускаем с одного адреса. */
+  missesPerWindow: 12,
+  missWindowMs: 60_000,
+  missBlockMs: 60_000,
 }
 
 const CLOSE = {
@@ -44,13 +48,43 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log }
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: LIMITS.maxPayload, perMessageDeflate: false })
 
+  // Перебор кодов: после серии промахов адрес на минуту получает отказ.
+  const misses = new Map()
+  const ipOf = (req) => {
+    const direct = req.socket.remoteAddress ?? ''
+    const fwd = req.headers['x-real-ip']
+    return (direct === '127.0.0.1' || direct === '::1' || direct === '::ffff:127.0.0.1') && typeof fwd === 'string' ? fwd : direct
+  }
+  const blocked = (ip) => {
+    const m = misses.get(ip)
+    return !!m && m.until > Date.now()
+  }
+  const miss = (ip) => {
+    const now = Date.now()
+    const m = misses.get(ip) ?? { count: 0, since: now, until: 0 }
+    if (now - m.since > LIMITS.missWindowMs) {
+      m.count = 0
+      m.since = now
+    }
+    m.count += 1
+    if (m.count >= LIMITS.missesPerWindow) m.until = now + LIMITS.missBlockMs
+    misses.set(ip, m)
+  }
+
   http.on('upgrade', (req, socket, head) => {
-    const url = new URL(req.url ?? '/', 'http://x')
+    let url
+    try {
+      url = new URL(req.url ?? '/', 'http://x')
+    } catch {
+      socket.destroy()
+      return
+    }
     if (url.pathname !== '/ws') {
       socket.destroy()
       return
     }
-    wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, url.searchParams))
+    const ip = ipOf(req)
+    wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, url.searchParams, ip))
   })
 
   function limiter(ws) {
@@ -69,7 +103,7 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log }
     }
   }
 
-  function onConnection(ws, params) {
+  function onConnection(ws, params, ip) {
     const role = params.get('role')
     const code = params.get('code') ?? ''
     if (!/^\d{6}$/.test(code)) return ws.close(CLOSE.badRequest, 'bad code')
@@ -79,7 +113,7 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log }
     })
     ws.on('error', () => ws.terminate())
     if (role === 'host') return onHost(ws, code, params.get('secret') ?? '')
-    if (role === 'guest') return onGuest(ws, code)
+    if (role === 'guest') return onGuest(ws, code, ip)
     ws.close(CLOSE.badRequest, 'bad role')
   }
 
@@ -116,9 +150,13 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log }
     })
   }
 
-  function onGuest(ws, code) {
+  function onGuest(ws, code, ip) {
+    if (blocked(ip)) return ws.close(CLOSE.tooFast, 'slow down')
     const room = rooms.get(code)
-    if (!room) return ws.close(CLOSE.notFound, 'no such room')
+    if (!room) {
+      miss(ip)
+      return ws.close(CLOSE.notFound, 'no such room')
+    }
     if (room.guests.size >= LIMITS.guestsPerRoom) return ws.close(CLOSE.full, 'room full')
     const conn = room.nextId++
     room.guests.set(conn, ws)
@@ -151,6 +189,8 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log }
 
   // Живые ли соединения: без ответа на ping за интервал рвём.
   const heartbeat = setInterval(() => {
+    const now = Date.now()
+    for (const [ip, m] of misses) if (m.until < now && now - m.since > LIMITS.missWindowMs) misses.delete(ip)
     for (const ws of wss.clients) {
       if (!ws.isAlive) {
         ws.terminate()

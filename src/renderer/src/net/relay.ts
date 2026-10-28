@@ -25,11 +25,6 @@ export class RoomFullError extends Error {}
 export class ServerUnreachableError extends Error {}
 export class CodeTakenError extends Error {}
 
-async function sha256hex(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
 export type RelayStatus = 'connecting' | 'online' | 'offline'
 
 /**
@@ -46,7 +41,8 @@ export class HostRelay {
 
   constructor(
     private code: string,
-    private secretSource: string,
+    /** Случайный секрет комнаты: только у хоста и в его сохранении. */
+    private secret: string,
     private server: HostServer,
     private onStatus: (s: RelayStatus, error?: Error) => void,
   ) {
@@ -55,8 +51,7 @@ export class HostRelay {
 
   private async connect() {
     if (this.closed) return
-    const secret = await sha256hex(`river:${this.secretSource}`)
-    const ws = new WebSocket(`${RELAY_URL}?role=host&code=${this.code}&secret=${secret}`)
+    const ws = new WebSocket(`${RELAY_URL}?role=host&code=${this.code}&secret=${this.secret}`)
     this.ws = ws
     ws.onmessage = (ev) => {
       if (typeof ev.data !== 'string') return

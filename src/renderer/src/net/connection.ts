@@ -1,16 +1,15 @@
 import { GameSession, type Profile, type SessionHandlers } from '../../../client/session.ts'
 import type { GameConfig } from '../../../engine/index.ts'
-import type { HostSnapshot } from '../../../host/index.ts'
 import type { ClientMessage, RejectReason } from '../../../protocol/index.ts'
 import { enqueue, resetScene, viewUpdate } from '../choreo/choreographer'
 import { sound } from '../audio/sound'
 import { formatCode } from '../lib/format'
-import { randomRoomCode } from '../lib/id'
+import { randomHex, randomRoomCode, roomToken } from '../lib/id'
 import { native } from '../lib/native'
 import { loadRaw, save } from '../lib/storage'
 import { useApp } from '../store/app'
 import { useScene } from '../store/scene'
-import { HostRuntime, type DirectInfo } from './host'
+import { HostRuntime, type DirectInfo, type SavedGame } from './host'
 import { CodeTakenError, connectByCode, NotFoundError, RoomFullError, type RelayStatus } from './relay'
 import { connectByAddress, parseAddress } from './ws'
 
@@ -24,9 +23,15 @@ let chatSeq = 0
 
 const set = useApp.setState
 
-function profile(): Profile {
+async function profileFor(room: string): Promise<Profile> {
   const p = useApp.getState().profile
-  return { name: p.name.trim() || 'Игрок', color: p.color, avatar: p.avatar, token: p.token, appVersion: useApp.getState().appVersion }
+  return {
+    name: p.name.trim() || 'Игрок',
+    color: p.color,
+    avatar: p.avatar,
+    token: await roomToken(p.token, room),
+    appVersion: useApp.getState().appVersion,
+  }
 }
 
 const REJECTS: Record<RejectReason, string> = {
@@ -108,7 +113,7 @@ async function open(t: Target): Promise<void> {
     transport.close()
     throw new Error('cancelled')
   }
-  if (!session) session = new GameSession(profile(), handlers())
+  if (!session) session = new GameSession(await profileFor(t.kind === 'code' ? t.code : t.url), handlers())
   session.attach(transport)
 }
 
@@ -136,31 +141,39 @@ function onRelay(status: RelayStatus, error?: Error) {
   if (error instanceof CodeTakenError) useApp.getState().toast('Этот код занят другой игрой. Закончи игру и создай новую.', 'error')
 }
 
-export function createGame() {
+export async function createGame() {
   const code = randomRoomCode()
   const config = loadRaw<GameConfig>('lastConfig') ?? undefined
-  runtime = new HostRuntime({ code, hostToken: useApp.getState().profile.token, appVersion: useApp.getState().appVersion, config, onRelay })
-  session = new GameSession(profile(), handlers())
-  target = null
+  const me = await profileFor(code)
   set({ role: 'host', code, conn: 'connecting', homeError: null })
+  runtime = new HostRuntime({ code, hostToken: me.token, relaySecret: randomHex(32), appVersion: useApp.getState().appVersion, config, onRelay })
+  session = new GameSession(me, handlers())
+  target = null
   session.attach(runtime.ownTransport())
 }
 
-export function savedGame(): HostSnapshot | null {
-  const snap = loadRaw<HostSnapshot>('snapshot')
-  if (!snap || snap.v !== 1) return null
-  if (snap.hostToken !== useApp.getState().profile.token) return null
-  if (snap.phase === 'finished') return null
+/** Незаконченная игра этого профиля (настройки у каждого профиля свои). */
+export function savedGame(): SavedGame | null {
+  const snap = loadRaw<SavedGame>('snapshot')
+  if (!snap || snap.v !== 1 || !snap.relaySecret || snap.phase === 'finished') return null
   return snap
 }
 
-export function resumeGame() {
+export async function resumeGame() {
   const snap = savedGame()
   if (!snap) return
-  runtime = new HostRuntime({ code: snap.code, hostToken: snap.hostToken, appVersion: useApp.getState().appVersion, restore: snap, onRelay })
-  session = new GameSession(profile(), handlers())
-  target = null
+  const me = await profileFor(snap.code)
   set({ role: 'host', code: snap.code, conn: 'connecting', homeError: null })
+  runtime = new HostRuntime({
+    code: snap.code,
+    hostToken: snap.hostToken,
+    relaySecret: snap.relaySecret,
+    appVersion: useApp.getState().appVersion,
+    restore: snap,
+    onRelay,
+  })
+  session = new GameSession({ ...me, token: snap.hostToken }, handlers())
+  target = null
   session.attach(runtime.ownTransport())
 }
 

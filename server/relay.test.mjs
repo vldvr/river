@@ -106,4 +106,25 @@ describe('relay', () => {
     expect(await client('role=guest&code=12').closed).toBe(4400)
     expect(await client('role=host&code=123456&secret=zz').closed).toBe(4400)
   })
+
+  it('slows down an address that keeps guessing codes', async () => {
+    for (let i = 0; i < 12; i++) expect(await client(`role=guest&code=${100000 + i}`).closed).toBe(4404)
+    const host = client(`role=host&code=555555&secret=${SECRET}`)
+    await host.next((m) => m.relay === 'hosting')
+    expect(await client('role=guest&code=555555').closed).toBe(4429)
+  })
+
+  it('survives a garbage request line', async () => {
+    const net = await import('node:net')
+    await new Promise((resolve) => {
+      const sock = net.connect(relay.port, '127.0.0.1', () => {
+        sock.write('GET http://[bad HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n')
+      })
+      sock.on('close', resolve)
+      sock.on('error', resolve)
+      setTimeout(() => sock.destroy(), 300)
+    })
+    const host = client(`role=host&code=666666&secret=${SECRET}`)
+    expect((await host.next((m) => m.relay === 'hosting')).code).toBe('666666')
+  })
 })

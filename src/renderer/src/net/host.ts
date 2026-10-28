@@ -16,6 +16,9 @@ export interface DirectInfo {
 
 const SNAPSHOT_KEY = 'snapshot'
 
+/** Сохранение хоста: состояние партии и секрет комнаты на сервере. */
+export type SavedGame = HostSnapshot & { relaySecret: string }
+
 /** Всё, что крутится у хоста: сервер партии, комната для гостей и вход по IP. */
 export class HostRuntime {
   readonly server: HostServer
@@ -23,16 +26,19 @@ export class HostRuntime {
   private directSessions = new Map<number, Session>()
   private offDirect: (() => void) | null = null
   private saveTimer: ReturnType<typeof setTimeout> | null = null
-  private pending: HostSnapshot | null = null
+  private pending: SavedGame | null = null
+  private readonly relaySecret: string
 
   constructor(opts: {
     code: string
     hostToken: string
+    relaySecret: string
     appVersion: string
     config?: GameConfig
     restore?: HostSnapshot
     onRelay: (s: RelayStatus, error?: Error) => void
   }) {
+    this.relaySecret = opts.relaySecret
     this.server = new HostServer({
       code: opts.code,
       hostToken: opts.hostToken,
@@ -41,7 +47,7 @@ export class HostRuntime {
       restore: opts.restore,
       onSnapshot: (s) => this.queueSave(s),
     })
-    this.relay = new HostRelay(opts.code, opts.hostToken, this.server, opts.onRelay)
+    this.relay = new HostRelay(opts.code, opts.relaySecret, this.server, opts.onRelay)
     native?.keepAwake(true)
   }
 
@@ -50,7 +56,7 @@ export class HostRuntime {
   }
 
   private queueSave(s: HostSnapshot) {
-    this.pending = s
+    this.pending = { ...s, relaySecret: this.relaySecret }
     if (this.saveTimer) return
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null

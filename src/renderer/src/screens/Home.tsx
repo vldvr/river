@@ -38,7 +38,7 @@ export function Home() {
 
   const create = () => {
     if (needName) return setEditProfile(true)
-    createGame()
+    void createGame()
   }
 
   return (
@@ -68,7 +68,7 @@ export function Home() {
               </div>
             </div>
             <div className="home__resume-actions">
-              <button className="btn btn--sm btn--primary" onClick={resumeGame}>
+              <button className="btn btn--sm btn--primary" onClick={() => void resumeGame()}>
                 <ArrowCounterClockwise size={16} /> Продолжить
               </button>
               <button
