@@ -218,3 +218,27 @@ describe('HostServer', () => {
     expect(restored.state.game.handNo).toBeGreaterThan(before)
   })
 })
+
+describe('HostServer limits', () => {
+  it('rejects newcomers when the room is locked or full, but lets the host and known players back', () => {
+    const sched = new ManualScheduler()
+    const server = new HostServer({ code: '1', hostToken: 'host-token-0000000000', appVersion: '1', scheduler: sched, rand: seededRandomInt(1) })
+    const say = (token: string) => {
+      const got: HostMessage[] = []
+      const t = loopback(server, (fn) => fn())
+      t.onMessage = (m) => got.push(m)
+      t.send({ t: 'hello', v: PROTOCOL_VERSION, appVersion: '1', name: 'X', color: '#000000', avatar: null, token })
+      return { t, got }
+    }
+    const host = say('host-token-0000000000')
+    const known = say('known-token-00000000000')
+    host.t.send({ t: 'lock', locked: true })
+    expect(say('stranger-token-0000000').got[0]).toMatchObject({ t: 'reject', reason: 'locked' })
+    known.t.close()
+    expect(say('known-token-00000000000').got[0]).toMatchObject({ t: 'welcome' })
+    host.t.send({ t: 'lock', locked: false })
+    for (let i = 0; i < 20; i++) say(`filler-token-${String(i).padStart(10, '0')}`)
+    expect(server.state.members.length).toBe(16)
+    expect(say('late-token-000000000000').got[0]).toMatchObject({ t: 'reject', reason: 'full' })
+  })
+})

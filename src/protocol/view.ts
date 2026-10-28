@@ -68,6 +68,8 @@ export interface TurnView {
 export interface TableView {
   phase: Phase
   paused: boolean
+  /** Вход новым участникам закрыт хостом. */
+  locked: boolean
   code: string
   hostId: string
   config: GameConfig

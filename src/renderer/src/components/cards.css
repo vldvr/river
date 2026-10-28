@@ -1,0 +1,68 @@
+.pcard {
+  position: relative;
+  transform-style: preserve-3d;
+  flex: none;
+}
+
+.pcard__face,
+.pcard__back {
+  position: absolute;
+  inset: 0;
+  border-radius: 7%/5%;
+  backface-visibility: hidden;
+  box-shadow:
+    var(--sx) var(--sy) 10px rgb(0 0 0 / 0.45),
+    0 1px 1px rgb(0 0 0 / 0.35);
+}
+
+.pcard__face {
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 30% 10%, rgb(255 255 255 / 0.65), transparent 60%),
+    linear-gradient(170deg, var(--paper), var(--paper-2));
+  transition: box-shadow 300ms var(--ease);
+}
+
+.pcard__face.is-win {
+  box-shadow:
+    0 0 0 2px var(--lamp),
+    0 0 28px 2px rgb(240 179 87 / 0.55),
+    var(--sx) var(--sy) 12px rgb(0 0 0 / 0.4);
+}
+
+.pcard__rank {
+  position: absolute;
+  top: 4%;
+  left: 9%;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variation-settings: 'SHRP' 70;
+}
+
+.pcard__corner-suit {
+  position: absolute;
+  left: 10%;
+  top: 34%;
+}
+
+.pcard__suit {
+  position: absolute;
+  right: 6%;
+  bottom: 5%;
+  opacity: 0.94;
+}
+
+.pcard__back {
+  transform: rotateY(180deg);
+  background-color: #263354;
+  background-image:
+    repeating-linear-gradient(45deg, rgb(240 179 87 / 0.17) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgb(240 179 87 / 0.17) 0 1px, transparent 1px 7px),
+    radial-gradient(90% 70% at 50% 40%, rgb(255 255 255 / 0.1), transparent 70%);
+  box-shadow:
+    inset 0 0 0 3px var(--paper),
+    inset 0 0 0 4px rgb(0 0 0 / 0.25),
+    var(--sx) var(--sy) 10px rgb(0 0 0 / 0.45),
+    0 1px 1px rgb(0 0 0 / 0.35);
+}

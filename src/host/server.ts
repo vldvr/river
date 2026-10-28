@@ -28,6 +28,7 @@ import {
   BETWEEN_HANDS_MS,
   batchDuration,
   configSchema,
+  MAX_MEMBERS,
   parseClientMessage,
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -77,6 +78,7 @@ export interface HostSnapshot {
   game: GameState
   members: Omit<Member, 'link'>[]
   kicked: string[]
+  locked: boolean
   seq: number
   shown: number[]
   showdown: ShowdownHand[] | null
@@ -112,7 +114,9 @@ export class HostServer {
   private phase: Phase = 'lobby'
   private paused = false
   private seq = 0
+  /** Токены выгнанных. Кик закрывает соединение и этот токен; от нового токена защищает замок комнаты. */
   private kicked = new Set<string>()
+  private locked = false
   private disposed = false
 
   private turn: { seat: number; startsAt: number; deadline: number; totalMs: number } | null = null
@@ -142,6 +146,7 @@ export class HostServer {
       this.phase = r.phase
       this.seq = r.seq
       this.kicked = new Set(r.kicked)
+      this.locked = r.locked
       this.shown = new Set(r.shown)
       this.showdown = r.showdown
       this.winners = r.winners
@@ -220,6 +225,12 @@ export class HostServer {
     }
 
     let m = [...this.members.values()].find((x) => x.token === msg.token)
+    const isHostToken = msg.token === this.hostToken
+    if (!m && !isHostToken && (this.locked || this.members.size >= MAX_MEMBERS)) {
+      link.send({ t: 'reject', reason: this.locked ? 'locked' : 'full' })
+      link.close()
+      return null
+    }
     if (m) {
       const old = m.link
       m.link = link
@@ -242,7 +253,7 @@ export class HostServer {
         color: msg.color,
         avatar: msg.avatar,
         isBot: false,
-        isHost: msg.token === this.hostToken,
+        isHost: isHostToken,
         link,
         ping: null,
         missed: 0,
@@ -343,6 +354,11 @@ export class HostServer {
       }
       case 'pause':
         return this.setPaused(msg.paused)
+      case 'lock':
+        this.locked = msg.locked
+        this.broadcastView()
+        this.save()
+        return
       case 'again':
         return this.onAgain()
     }
@@ -412,7 +428,7 @@ export class HostServer {
 
   private onAddBot() {
     const g = this.game
-    if (seatedPlayers(g).length >= g.config.maxSeats) return
+    if (seatedPlayers(g).length >= g.config.maxSeats || this.members.size >= MAX_MEMBERS) return
     if (this.phase === 'finished' || (this.phase === 'playing' && g.config.format === 'tournament')) return
     const used = new Set([...this.members.values()].map((x) => x.name))
     const name = BOT_NAMES.find((n) => !used.has(n)) ?? `Бот ${this.members.size + 1}`
@@ -761,6 +777,7 @@ export class HostServer {
     return {
       phase: this.phase,
       paused: this.paused,
+      locked: this.locked,
       code: this.code,
       hostId: [...this.members.values()].find((x) => x.isHost)?.id ?? '',
       config: g.config,
@@ -808,6 +825,7 @@ export class HostServer {
       game: this.game,
       members: [...this.members.values()].map(({ link: _link, ...rest }) => rest),
       kicked: [...this.kicked],
+      locked: this.locked,
       seq: this.seq,
       shown: [...this.shown],
       showdown: this.showdown,

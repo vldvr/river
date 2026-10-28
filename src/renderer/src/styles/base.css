@@ -1,0 +1,154 @@
+@font-face {
+  font-family: 'Geologica';
+  src: url('../assets/fonts/Geologica.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: oblique 0deg 12deg;
+  font-display: block;
+}
+
+:root {
+  /* Комната и стол */
+  --room: #0e1311;
+  --room-2: #151c19;
+  --room-3: #1d2622;
+  --felt: #1f5b45;
+  --felt-lit: #2c7a5c;
+  --felt-deep: #12382b;
+  --leather: #2b1d16;
+  --leather-2: #3a281e;
+  --leather-hi: #5a4030;
+
+  /* Свет лампы: единственный акцент */
+  --lamp: #f0b357;
+  --lamp-ink: #2a1a06;
+  --lamp-12: rgb(240 179 87 / 0.12);
+  --lamp-24: rgb(240 179 87 / 0.24);
+  --lamp-40: rgb(240 179 87 / 0.4);
+
+  /* Текст */
+  --text: #ede7dc;
+  --muted: #a59d90;
+  --faint: #6f6a61;
+  --line: rgb(237 231 220 / 0.1);
+  --line-2: rgb(237 231 220 / 0.18);
+  --error: #e38b74;
+
+  /* Карты */
+  --paper: #f4f1ea;
+  --paper-2: #e7e2d6;
+  --ink: #1b1c1e;
+  --suit-red: #c2322f;
+  --suit-blue: #2a62c9;
+  --suit-green: #2f8a4a;
+
+  --radius-s: 8px;
+  --radius-m: 14px;
+  --radius-pill: 999px;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --z-stage: 1;
+  --z-hud: 20;
+  --z-panel: 30;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-grain: 70;
+
+  color-scheme: dark;
+}
+
+[data-felt='blue'] {
+  --felt: #1e4466;
+  --felt-lit: #2b5f8c;
+  --felt-deep: #10263c;
+}
+
+[data-felt='wine'] {
+  --felt: #5a1f2b;
+  --felt-lit: #7b2d3c;
+  --felt-deep: #341018;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--room);
+  color: var(--text);
+  font-family: 'Geologica', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  font-variation-settings: 'SHRP' 0;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+:focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 2px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: 'SHRP' 40;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Зерно поверх всего: фиксированный слой, не перерисовывается при скролле. */
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-grain);
+  background-image: url('../assets/noise.png');
+  background-size: 256px;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

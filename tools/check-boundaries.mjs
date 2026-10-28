@@ -8,7 +8,7 @@ const allowed = {
   'src/protocol': ['src/engine', 'src/protocol'],
   'src/host': ['src/engine', 'src/protocol', 'src/host'],
   'src/client': ['src/engine', 'src/protocol', 'src/client'],
-  'src/main': ['src/main', 'src/protocol'],
+  'src/main': ['src/main', 'src/protocol', 'src/preload/api'],
   'src/preload': ['src/preload'],
   'src/renderer': ['src/renderer', 'src/engine', 'src/protocol', 'src/host', 'src/client', 'src/preload/api'],
 }

@@ -53,13 +53,17 @@ export const clientMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('addBot') }),
   z.object({ t: z.literal('kick'), id: z.string().max(64) }),
   z.object({ t: z.literal('pause'), paused: z.boolean() }),
+  z.object({ t: z.literal('lock'), locked: z.boolean() }),
   z.object({ t: z.literal('again') }),
 ])
 
 export type ClientMessage = z.infer<typeof clientMessage>
 export type HelloMessage = Extract<ClientMessage, { t: 'hello' }>
 
-export type RejectReason = 'version' | 'full' | 'kicked' | 'closed'
+export type RejectReason = 'version' | 'full' | 'kicked' | 'locked' | 'closed'
+
+/** Сколько участников (игроков и зрителей) может быть в комнате. */
+export const MAX_MEMBERS = 16
 
 export type HostMessage =
   | { t: 'welcome'; you: string; view: TableView; avatars: Record<string, string> }

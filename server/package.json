@@ -1,0 +1,14 @@
+{
+  "name": "river-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ретранслятор комнат Ривера: пересылает сообщения между хостом и гостями",
+  "main": "relay.mjs",
+  "scripts": {
+    "start": "node relay.mjs"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  }
+}
