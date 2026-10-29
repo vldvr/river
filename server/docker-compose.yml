@@ -5,6 +5,9 @@ services:
     restart: unless-stopped
     ports:
       - '127.0.0.1:8095:8080'
+    environment:
+      # Порт открыт только на localhost, снаружи ходят через nginx: ему можно верить в X-Real-IP.
+      TRUST_PROXY: '1'
     mem_limit: 128m
     logging:
       options:

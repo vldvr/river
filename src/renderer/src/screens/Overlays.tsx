@@ -59,9 +59,11 @@ export function Results({ view }: { view: TableView }) {
 export function CenterNotice({ view }: { view: TableView }) {
   const live = useScene((s) => s.live)
   const host = isHost()
-  let content: React.ReactNode = null
+  const ready = view.players.filter((p) => p.seat !== null && p.status === 'active' && p.stack > 0).length
+  const waiting = !view.paused && !live && view.nextHandInMs === null && ready < 2
 
-  if (view.phase === 'playing' && view.paused) {
+  let content: React.ReactNode = null
+  if (view.paused) {
     content = (
       <>
         <div className="notice__title">Пауза</div>
@@ -74,26 +76,13 @@ export function CenterNotice({ view }: { view: TableView }) {
         )}
       </>
     )
-  } else if (view.phase === 'playing' && !live && !view.hand?.done && view.nextHandInMs === null) {
-    const active = view.players.filter((p) => p.seat !== null && p.status === 'active' && p.stack > 0).length
-    if (active < 2) {
-      content = (
-        <>
-          <div className="notice__title">Ждём игроков</div>
-          <div className="notice__sub">Нужно хотя бы двое с фишками за столом</div>
-        </>
-      )
-    }
-  } else if (view.phase === 'playing' && !live && view.nextHandInMs === null && view.hand?.done) {
-    const active = view.players.filter((p) => p.seat !== null && p.status === 'active' && p.stack > 0).length
-    if (active < 2) {
-      content = (
-        <>
-          <div className="notice__title">Ждём игроков</div>
-          <div className="notice__sub">Нужно хотя бы двое с фишками за столом</div>
-        </>
-      )
-    }
+  } else if (waiting) {
+    content = (
+      <>
+        <div className="notice__title">Ждём игроков</div>
+        <div className="notice__sub">Нужно хотя бы двое с фишками за столом</div>
+      </>
+    )
   }
 
   return (

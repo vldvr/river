@@ -73,6 +73,15 @@
   mix-blend-mode: soft-light;
 }
 
+.felt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, transparent 62%, rgb(0 0 0 / 0.28) 100%);
+  pointer-events: none;
+}
+
 .felt__line {
   position: absolute;
   inset: 34px 40px;
@@ -88,7 +97,7 @@
   height: 820px;
   margin: -410px 0 0 -550px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(255 214 150 / 0.24), rgb(255 200 130 / 0.1) 45%, transparent 100%);
+  background: radial-gradient(closest-side, rgb(255 220 160 / 0.42), rgb(255 205 140 / 0.16) 42%, transparent 100%);
   mix-blend-mode: soft-light;
   pointer-events: none;
 }

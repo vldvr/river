@@ -30,7 +30,7 @@ const CLOSE = {
   tooFast: 4429,
 }
 
-export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log } = {}) {
+export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, trustProxy = false } = {}) {
   /** @type {Map<string, {secret: string, host: import('ws').WebSocket, guests: Map<number, import('ws').WebSocket>, nextId: number}>} */
   const rooms = new Map()
 
@@ -50,16 +50,22 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log }
 
   // Перебор кодов: после серии промахов адрес на минуту получает отказ.
   const misses = new Map()
+  // За nginx (порт контейнера открыт только на localhost) адрес клиента приходит в X-Real-IP;
+  // без прокси берём адрес сокета. Неизвестный адрес не блокируем, чтобы не задеть всех сразу.
   const ipOf = (req) => {
-    const direct = req.socket.remoteAddress ?? ''
-    const fwd = req.headers['x-real-ip']
-    return (direct === '127.0.0.1' || direct === '::1' || direct === '::ffff:127.0.0.1') && typeof fwd === 'string' ? fwd : direct
+    if (trustProxy) {
+      const fwd = req.headers['x-real-ip']
+      return typeof fwd === 'string' && fwd ? fwd : null
+    }
+    return req.socket.remoteAddress ?? null
   }
   const blocked = (ip) => {
+    if (!ip) return false
     const m = misses.get(ip)
     return !!m && m.until > Date.now()
   }
   const miss = (ip) => {
+    if (!ip) return
     const now = Date.now()
     const m = misses.get(ip) ?? { count: 0, since: now, until: 0 }
     if (now - m.since > LIMITS.missWindowMs) {
@@ -220,7 +226,7 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT ?? 8080)
-  const relay = await createRelay({ port })
+  const relay = await createRelay({ port, trustProxy: process.env.TRUST_PROXY === '1' })
   console.log(`river relay on :${relay.port}`)
   const stop = async () => {
     await relay.close()

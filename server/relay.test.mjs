@@ -127,4 +127,18 @@ describe('relay', () => {
     const host = client(`role=host&code=666666&secret=${SECRET}`)
     expect((await host.next((m) => m.relay === 'hosting')).code).toBe('666666')
   })
+
+  it('behind a proxy keys the limiter on X-Real-IP, not on the proxy address', async () => {
+    await relay.close()
+    relay = await createRelay({ port: 0, host: '127.0.0.1', log: () => {}, trustProxy: true })
+    url = `ws://127.0.0.1:${relay.port}/ws`
+    const as = (ip, query) => {
+      const ws = new WebSocket(`${url}?${query}`, { headers: { 'x-real-ip': ip } })
+      return new Promise((r) => ws.on('close', (code) => r(code)))
+    }
+    for (let i = 0; i < 12; i++) expect(await as('10.0.0.66', `role=guest&code=${100000 + i}`)).toBe(4404)
+    expect(await as('10.0.0.66', 'role=guest&code=100099')).toBe(4429)
+    // Другой игрок за тем же nginx не страдает.
+    expect(await as('10.0.0.7', 'role=guest&code=100099')).toBe(4404)
+  })
 })
