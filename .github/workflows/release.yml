@@ -10,6 +10,8 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,7 +21,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - name: Собрать установщик и portable, выложить в релиз
-        run: npx electron-builder --win --x64 --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Релиз создаём заранее: иначе electron-builder грузит файлы параллельно
+      # и может завести на одном теге два релиза.
+      - name: Черновик релиза
+        run: gh release create ${{ github.ref_name }} --draft --title "Ривер ${{ github.ref_name }}" --notes-file .github/release-notes.md
+      - name: Собрать установщик и portable, выложить в черновик
+        run: npx electron-builder --win --x64 --publish always -c.publish.releaseType=draft
+      - name: Опубликовать релиз
+        run: gh release edit ${{ github.ref_name }} --draft=false --latest
