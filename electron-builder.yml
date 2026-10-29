@@ -1,0 +1,38 @@
+appId: com.vldvr.river
+productName: River
+copyright: © 2026 vldvr
+directories:
+  output: release
+  buildResources: build
+electronLanguages:
+  - ru
+  - en-US
+files:
+  - out/**
+  - resources/**
+  - package.json
+win:
+  icon: build/icon.png
+  executableName: River
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Ривер
+  uninstallDisplayName: Ривер
+  deleteAppDataOnUninstall: false
+  artifactName: River-Setup-${version}.${ext}
+portable:
+  artifactName: River-${version}-portable.${ext}
+publish:
+  provider: github
+  owner: vldvr
+  repo: river
+  releaseType: release

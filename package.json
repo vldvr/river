@@ -1,6 +1,6 @@
 {
   "name": "river",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Ривер: техасский холдем для своей компании, без серверов",
   "author": "vldvr",
   "license": "MIT",
@@ -25,16 +25,11 @@
   },
   "dependencies": {
     "@achingbrain/nat-port-mapper": "4.0.5",
-    "@phosphor-icons/react": "2.1.10",
     "electron-updater": "6.8.11",
-    "motion": "14.7.1",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "ws": "8.22.0",
-    "zod": "4.6.7",
-    "zustand": "5.0.16"
+    "ws": "8.22.0"
   },
   "devDependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "@playwright/test": "1.64.1",
     "@types/node": "22.20.5",
     "@types/react": "19.3.0",
@@ -45,9 +40,14 @@
     "electron-builder": "26.18.0",
     "electron-vite": "6.0.0",
     "fast-check": "4.10.2",
+    "motion": "14.7.1",
     "pokersolver": "2.1.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "7.0.2",
     "vite": "8.3.5",
-    "vitest": "5.0.5"
+    "vitest": "5.0.5",
+    "zod": "4.6.7",
+    "zustand": "5.0.16"
   }
 }

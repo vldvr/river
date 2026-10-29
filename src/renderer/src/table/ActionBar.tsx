@@ -29,7 +29,8 @@ export function ActionBar() {
   const [pre, setPre] = useState<Pre>('none')
   const [amount, setAmount] = useState(0)
   const [sentKey, setSentKey] = useState<string | null>(null)
-  const turnKey = `${handNo}:${hand?.currentBet ?? 0}:${legal?.toCall ?? 0}:${legal?.minTo ?? 0}`
+  // Ключ хода: улица и доска нужны, иначе после прочеканной улицы следующий ход выглядел бы уже сделанным.
+  const turnKey = `${handNo}:${hand?.street}:${hand?.board.length ?? 0}:${hand?.currentBet ?? 0}:${legal?.toCall ?? 0}:${legal?.minTo ?? 0}`
 
   // Новая раздача: пред-действия сбрасываются.
   useEffect(() => setPre('none'), [handNo])
