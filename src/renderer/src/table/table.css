@@ -415,8 +415,9 @@
 
 .result {
   position: absolute;
+  z-index: 6;
   left: 800px;
-  top: 548px;
+  top: 532px;
   transform: translate(-50%, -50%);
   display: grid;
   justify-items: center;

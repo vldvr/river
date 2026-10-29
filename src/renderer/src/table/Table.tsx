@@ -25,10 +25,8 @@ export function Table() {
   const buttonPlace = scene.button !== null ? (places.get(scene.button) ?? null) : null
   const hero = heroSeat !== null ? scene.seats[heroSeat] : undefined
   const heroCards = hero?.cards?.filter((c): c is string => !!c) ?? []
-  const hint =
-    heroCards.length === 2 && !hero?.folded
-      ? (hero?.handName ?? partialHandName([...heroCards, ...scene.board]))
-      : null
+  // На шоудауне название руки и так подписано у места.
+  const hint = heroCards.length === 2 && !hero?.folded && !hero?.handName ? partialHandName([...heroCards, ...scene.board]) : null
 
   return (
     <Stage>

@@ -58,9 +58,12 @@ export function Results({ view }: { view: TableView }) {
 /** Подсказки в центре стола: пауза, ожидание игроков. */
 export function CenterNotice({ view }: { view: TableView }) {
   const live = useScene((s) => s.live)
+  const banner = useScene((s) => s.banner)
   const host = isHost()
   const ready = view.players.filter((p) => p.seat !== null && p.status === 'active' && p.stack > 0).length
-  const waiting = !view.paused && !live && view.nextHandInMs === null && ready < 2
+  // В турнире, где уже есть места, один оставшийся означает конец партии, а не ожидание.
+  const finishing = view.config.format === 'tournament' && view.players.some((p) => p.place !== null)
+  const waiting = !view.paused && !live && !banner && !finishing && view.nextHandInMs === null && ready < 2
 
   let content: React.ReactNode = null
   if (view.paused) {
