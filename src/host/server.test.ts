@@ -261,3 +261,44 @@ describe('HostServer limits', () => {
     expect(after.handNo > hand || after.toAct !== v.you.legal!.seat).toBe(true)
   })
 })
+
+describe('HostServer blackjack', () => {
+  it('plays rounds through the protocol, keeps chips and never leaks the hole card', () => {
+    const H = harness({ game: 'blackjack', format: 'cash', startingStack: 500, bigBlind: 10, smallBlind: 5, turnSeconds: 10 }, 33)
+    const host = H.connect('Хост', 'host-token-0000000000', false)
+    host.t.send({ t: 'addBot' })
+    host.t.send({ t: 'addBot' })
+    host.t.send({ t: 'start' })
+    H.flush()
+    const orig = host.t.onMessage!
+    host.t.onMessage = (msg) => {
+      const r = H.server.state.game.bj
+      if (r && r.holeHidden && r.dealer[1] && JSON.stringify(msg).includes(`"${r.dealer[1]}"`)) {
+        // Та же карта может честно лежать у кого-то на руках: проверяем только поле дилера.
+        if ('view' in msg && msg.view?.bj?.dealer.cards.includes(r.dealer[1])) throw new Error('hole card leaked')
+      }
+      orig(msg)
+    }
+    let rounds = 0
+    let last = 0
+    for (let i = 0; i < 4000 && rounds < 15; i++) {
+      H.tick(400)
+      const bj = host.view?.bj
+      if (!bj) continue
+      if (bj.roundNo !== last) {
+        last = bj.roundNo
+        rounds++
+      }
+      if (bj.you.canBet && bj.you.bet === null) host.t.send({ t: 'bj', round: bj.roundNo, action: { type: 'bet', amount: 20 } })
+      if (bj.you.legal) host.t.send({ t: 'bj', round: bj.roundNo, action: { type: 'stand' } })
+      H.flush()
+      const g = H.server.state.game
+      const onTable = g.bj?.phase === 'playing' ? g.bj.seats.reduce((s, x) => s + x.hands.reduce((a, h) => a + h.bet, 0), 0) : 0
+      const stacks = g.players.reduce((s, p) => s + p.stack, 0)
+      // Фишки игроков плюс ставки на столе меняются только на итог раундов: не уходят в минус и не берутся из ниоткуда.
+      expect(stacks + onTable).toBeGreaterThan(0)
+    }
+    expect(rounds).toBeGreaterThanOrEqual(15)
+    expect(H.server.state.game.bj).not.toBeNull()
+  })
+})

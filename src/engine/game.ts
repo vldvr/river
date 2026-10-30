@@ -11,9 +11,14 @@ import {
   type PlayerAction,
 } from './hand.ts'
 
+import type { BjRound } from './blackjack.ts'
+
 export type Format = 'tournament' | 'cash'
+export type GameKind = 'holdem' | 'blackjack'
 
 export interface GameConfig {
+  /** Во что играем. В блэкджеке большой блайнд служит минимальной ставкой, формат всегда кэш. */
+  game: GameKind
   format: Format
   startingStack: number
   smallBlind: number
@@ -29,6 +34,7 @@ export interface GameConfig {
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
+  game: 'holdem',
   format: 'tournament',
   startingStack: 2000,
   smallBlind: 10,
@@ -65,6 +71,9 @@ export interface GameState {
   hand: HandState | null
   finished: boolean
   bustCounter: number
+  /** Блэкджек: текущий раунд и шуз. */
+  bj: BjRound | null
+  shoe: Card[]
 }
 
 export type GameEvent =
@@ -90,7 +99,7 @@ export function canReenter(g: GameState, p: GamePlayer): boolean {
 
 export function createGame(config: GameConfig): GameState {
   return {
-    config: { ...config, maxSeats: Math.max(2, Math.min(MAX_SEATS, config.maxSeats)) },
+    config: normalizeConfig(config),
     players: [],
     handNo: 0,
     button: null,
@@ -99,6 +108,18 @@ export function createGame(config: GameConfig): GameState {
     hand: null,
     finished: false,
     bustCounter: 0,
+    bj: null,
+    shoe: [],
+  }
+}
+
+/** Блэкджек всегда кэш и не больше 7 мест; холдем до 9. */
+export function normalizeConfig(c: GameConfig): GameConfig {
+  const bj = c.game === 'blackjack'
+  return {
+    ...c,
+    format: bj ? 'cash' : c.format,
+    maxSeats: Math.max(bj ? 1 : 2, Math.min(bj ? 7 : MAX_SEATS, c.maxSeats)),
   }
 }
 

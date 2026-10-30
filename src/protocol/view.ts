@@ -1,4 +1,7 @@
 import type {
+  BjEvent,
+  BjLegal,
+  BjResult,
   Blinds,
   Card,
   GameConfig,
@@ -58,6 +61,30 @@ export interface HandView {
   winners: number[]
 }
 
+export interface BjHandView {
+  cards: Card[]
+  bet: number
+  total: number
+  soft: boolean
+  doubled: boolean
+  done: boolean
+  result: BjResult | null
+  payout: number
+}
+
+export interface BjView {
+  roundNo: number
+  phase: 'betting' | 'playing' | 'done'
+  minBet: number
+  maxBet: number
+  dealer: { cards: (Card | null)[]; total: number | null; soft: boolean }
+  /** В фазе ставок: все, кто может ставить; в игре: участники раунда. */
+  seats: { seat: number; id: string; bet: number | null; hands: BjHandView[] }[]
+  toAct: { seat: number; hand: number } | null
+  shoeLeft: number
+  you: { legal: BjLegal | null; canBet: boolean; bet: number | null }
+}
+
 export interface TurnView {
   seat: number
   /** Сколько мс осталось на момент отправки. */
@@ -80,6 +107,8 @@ export interface TableView {
   /** Через сколько мс вырастут блайнды (на момент отправки). */
   nextLevelInMs: number | null
   hand: HandView | null
+  /** Блэкджек: текущий раунд. */
+  bj: BjView | null
   turn: TurnView | null
   /** Следующая раздача начнётся через… (мс), если ждём. */
   nextHandInMs: number | null
@@ -100,6 +129,9 @@ export type ViewEvent =
   | Exclude<GameEvent, { t: 'deal' }>
   | { t: 'deal'; order: number[]; yours: Card[] | null }
   | { t: 'turn'; seat: number; totalMs: number }
+  | BjEvent
+  /** Блэкджек: начался ход (seat -1: время ставок). */
+  | { t: 'bj_turn'; seat: number; hand: number; totalMs: number }
   | { t: 'timeout'; seat: number }
   | { t: 'show'; seat: number; cards: Card[] }
   | { t: 'joined'; id: string; name: string }

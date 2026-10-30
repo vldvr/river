@@ -1,0 +1,153 @@
+.bj-print {
+  position: absolute;
+  left: 800px;
+  top: 376px;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgb(240 179 87 / 0.32);
+  font-variation-settings: 'SHRP' 80;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.bj-print__small {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgb(240 230 210 / 0.22);
+}
+
+.bj-shoe {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.bj-shoe__card {
+  position: absolute;
+  left: -28px;
+  top: -39px;
+}
+
+.bj-dealer {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bj-total {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: rgb(0 0 0 / 0.42);
+  color: var(--text);
+  font-weight: 650;
+}
+
+.bj-card {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  perspective: 900px;
+}
+
+.bj-card.is-active .pcard__face {
+  box-shadow:
+    0 0 0 2px rgb(240 179 87 / 0.7),
+    var(--sx) var(--sy) 10px rgb(0 0 0 / 0.45);
+}
+
+.bj-hand-total {
+  position: absolute;
+  z-index: 8;
+  transform: translate(-50%, -50%);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: rgb(10 14 12 / 0.85);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 650;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.bj-hand-total.is-active {
+  background: var(--lamp);
+  color: var(--lamp-ink);
+}
+
+.bj-label {
+  position: absolute;
+  z-index: 9;
+  transform: translate(-50%, -50%);
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: #22201c;
+  font-size: 16px;
+  font-weight: 650;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.45);
+  pointer-events: none;
+}
+
+.bj-label.is-win {
+  background: var(--lamp);
+  color: var(--lamp-ink);
+}
+
+.bj-label.is-lose {
+  background: rgb(20 26 23 / 0.92);
+  color: var(--muted);
+}
+
+/* Панель ставок и действий */
+.bjbar {
+  width: 480px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.bjbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.bjbar__amount {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bjbar__chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.bjbar__buttons {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.bjbar__wait {
+  padding: 12px 20px;
+  border-radius: var(--radius-pill);
+  background: rgb(14 19 17 / 0.88);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+}

@@ -64,7 +64,9 @@ export function CenterNotice({ view }: { view: TableView }) {
   const ready = view.players.filter((p) => p.seat !== null && p.status === 'active' && p.stack > 0).length
   // В турнире, где уже есть места, один оставшийся означает конец партии, а не ожидание.
   const finishing = view.config.format === 'tournament' && view.players.some((p) => p.place !== null)
-  const waiting = !view.paused && !live && !banner && !finishing && view.nextHandInMs === null && ready < 2
+  const bj = view.config.game === 'blackjack'
+  const need = bj ? 1 : 2
+  const waiting = !view.paused && (bj ? !view.bj || view.bj.phase === 'done' : !live && !banner) && !finishing && view.nextHandInMs === null && ready < need
 
   let content: React.ReactNode = null
   if (view.paused) {
@@ -84,7 +86,7 @@ export function CenterNotice({ view }: { view: TableView }) {
     content = (
       <>
         <div className="notice__title">Ждём игроков</div>
-        <div className="notice__sub">Нужно хотя бы двое с фишками за столом</div>
+        <div className="notice__sub">{bj ? 'Нужен хотя бы один игрок с фишками' : 'Нужно хотя бы двое с фишками за столом'}</div>
       </>
     )
   }

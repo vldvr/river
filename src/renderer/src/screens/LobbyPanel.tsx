@@ -19,7 +19,7 @@ export function LobbyPanel({ view }: { view: TableView }) {
   const [editing, setEditing] = useState(false)
   const seated = view.players.filter((p) => p.seat !== null)
   const spectators = view.players.filter((p) => p.seat === null)
-  const canStart = seated.length >= 2
+  const canStart = seated.length >= (view.config.game === 'blackjack' ? 1 : 2)
 
   const copy = () => {
     void navigator.clipboard.writeText(view.code)
@@ -114,6 +114,10 @@ function reentryText(n: number): string {
 }
 
 function ConfigSummary({ config: c }: { config: GameConfig }) {
+  if (c.game === 'blackjack') {
+    const bj = [`Блэкджек, стек ${chips(c.startingStack)}`, `ставка от ${chips(c.bigBlind)}`, reentryText(c.reentries), `${c.turnSeconds} с на ход`]
+    return <p className="lobby__rules">{bj.join(', ')}</p>
+  }
   const parts = [
     c.format === 'tournament' ? 'Турнир' : 'Кэш-игра',
     `стек ${chips(c.startingStack)}`,
@@ -135,7 +139,7 @@ function ConfigForm({ config }: { config: GameConfig }) {
     setC(next)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      const valid = next.smallBlind < next.bigBlind && next.bigBlind <= next.startingStack && next.startingStack >= 20
+      const valid = next.smallBlind < next.bigBlind && next.bigBlind <= next.startingStack && next.startingStack >= 20 && next.bigBlind >= 2
       if (!valid) return
       send({ t: 'config', config: next })
       rememberConfig(next)
@@ -143,8 +147,42 @@ function ConfigForm({ config }: { config: GameConfig }) {
   }
   const num = (v: string) => Math.max(0, Math.floor(Number(v.replace(/\s/g, '')) || 0))
 
+  const bj = c.game === 'blackjack'
   return (
     <div className="cfg">
+      <div className="field">
+        <span className="field__label">Игра</span>
+        <div className="segmented">
+          <button aria-pressed={!bj} onClick={() => update({ game: 'holdem', maxSeats: 9 })}>
+            Холдем
+          </button>
+          <button aria-pressed={bj} onClick={() => update({ game: 'blackjack', format: 'cash', maxSeats: 7 })}>
+            Блэкджек
+          </button>
+        </div>
+      </div>
+
+      {bj ? (
+        <>
+          <label className="field">
+            <span className="field__label">Стартовый стек</span>
+            <input className="input num" inputMode="numeric" value={c.startingStack} onChange={(e) => update({ startingStack: num(e.target.value) })} />
+          </label>
+          <label className="field">
+            <span className="field__label">Минимальная ставка</span>
+            <input
+              className="input num"
+              inputMode="numeric"
+              value={c.bigBlind}
+              onChange={(e) => {
+                const bb = num(e.target.value)
+                update({ bigBlind: bb, smallBlind: Math.max(1, Math.floor(bb / 2)) })
+              }}
+            />
+          </label>
+        </>
+      ) : (
+        <>
       <div className="field">
         <span className="field__label">Формат</span>
         <div className="segmented">
@@ -191,9 +229,11 @@ function ConfigForm({ config }: { config: GameConfig }) {
           </div>
         </>
       ) : null}
+        </>
+      )}
 
       <div className="field">
-        <span className="field__label">{c.format === 'tournament' ? 'Повторные входы после вылета' : 'Докупки после вылета'}</span>
+        <span className="field__label">{c.format === 'tournament' && !bj ? 'Повторные входы после вылета' : 'Докупки после вылета'}</span>
         <div className="segmented">
           {REENTRY_OPTIONS.map((n) => (
             <button key={n} aria-pressed={c.reentries === n} onClick={() => update({ reentries: n })}>
@@ -217,7 +257,7 @@ function ConfigForm({ config }: { config: GameConfig }) {
       <div className="field">
         <span className="field__label">Мест за столом</span>
         <div className="segmented">
-          {[2, 4, 6, 9].map((n) => (
+          {(bj ? [1, 3, 5, 7] : [2, 4, 6, 9]).map((n) => (
             <button key={n} aria-pressed={c.maxSeats === n} onClick={() => update({ maxSeats: n })}>
               {n}
             </button>

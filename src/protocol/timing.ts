@@ -24,6 +24,13 @@ export const T = {
   end: 500,
   bust: 900,
   show: 700,
+  bjRound: 500,
+  bjBet: 320,
+  bjCard: 340,
+  bjAct: 240,
+  bjReveal: 650,
+  bjResult: 420,
+  bjEnd: 400,
 } as const
 
 /** Пауза между раздачами, чтобы рассмотреть итог. */
@@ -57,6 +64,20 @@ export function eventDuration(e: ViewEvent, revealed: boolean): number {
       return T.bust
     case 'show':
       return T.show
+    case 'bj_round':
+      return T.bjRound
+    case 'bj_bet':
+      return T.bjBet
+    case 'bj_card':
+      return T.bjCard
+    case 'bj_act':
+      return T.bjAct
+    case 'bj_reveal':
+      return T.bjReveal
+    case 'bj_result':
+      return T.bjResult
+    case 'bj_end':
+      return T.bjEnd
     default:
       return 0
   }

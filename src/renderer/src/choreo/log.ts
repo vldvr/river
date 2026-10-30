@@ -63,5 +63,24 @@ export function logEvent(e: ViewEvent, view: TableView) {
     case 'show':
       push(hand, `${name(view, e.seat)} показывает ${e.cards.map(cardText).join(' ')}`)
       return
+    case 'bj_round':
+      hand = e.roundNo
+      seatIds = new Map(view.players.filter((p) => p.seat !== null).map((p) => [p.seat!, p.id]))
+      push(hand, `Раунд ${e.roundNo}${e.shuffled ? ', колода перетасована' : ''}`, true)
+      return
+    case 'bj_result': {
+      const what =
+        e.result === 'blackjack'
+          ? `блэкджек, +${chips(e.payout - e.bet)}`
+          : e.result === 'win'
+            ? `выигрыш +${chips(e.payout - e.bet)}`
+            : e.result === 'push'
+              ? 'ничья'
+              : e.result === 'bust'
+                ? `перебор, −${chips(e.bet)}`
+                : `проигрыш, −${chips(e.bet)}`
+      push(hand, `${name(view, e.seat)}: ${what}`)
+      return
+    }
   }
 }

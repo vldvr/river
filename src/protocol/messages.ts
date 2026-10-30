@@ -19,6 +19,7 @@ const playerAction = z.discriminatedUnion('type', [
 ])
 
 export const configSchema = z.object({
+  game: z.enum(['holdem', 'blackjack']),
   format: z.enum(['tournament', 'cash']),
   startingStack: z.number().int().min(20).max(10_000_000),
   smallBlind: z.number().int().min(1).max(1_000_000),
@@ -27,7 +28,7 @@ export const configSchema = z.object({
   levelMinutes: z.number().int().min(0).max(120),
   reentries: z.number().int().min(0).max(99),
   turnSeconds: z.number().int().min(5).max(300),
-  maxSeats: z.number().int().min(2).max(9),
+  maxSeats: z.number().int().min(1).max(9),
 })
 
 export const clientMessage = z.discriminatedUnion('t', [
@@ -41,6 +42,17 @@ export const clientMessage = z.discriminatedUnion('t', [
     token: z.string().min(16).max(64),
   }),
   z.object({ t: z.literal('action'), handNo: z.number().int(), action: playerAction }),
+  z.object({
+    t: z.literal('bj'),
+    round: z.number().int(),
+    action: z.discriminatedUnion('type', [
+      z.object({ type: z.literal('bet'), amount: z.number().int().positive().max(1e12) }),
+      z.object({ type: z.literal('hit') }),
+      z.object({ type: z.literal('stand') }),
+      z.object({ type: z.literal('double') }),
+      z.object({ type: z.literal('split') }),
+    ]),
+  }),
   z.object({ t: z.literal('chat'), text: z.string().trim().min(1).max(200) }),
   z.object({ t: z.literal('sit'), out: z.boolean() }),
   z.object({ t: z.literal('rebuy') }),

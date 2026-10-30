@@ -4,6 +4,7 @@ import { sound } from '../audio/sound'
 import { chips } from '../lib/format'
 import { native } from '../lib/native'
 import { logEvent } from './log'
+import { bjApplyView, bjStep } from './bj'
 import { useApp } from '../store/app'
 import { sceneFromView, useScene, type SceneSeat } from '../store/scene'
 import { DECK, HERO_CARD, POT, seatPlaces, type SeatPlace } from '../table/geometry'
@@ -58,6 +59,7 @@ export function resetScene(view: TableView, receivedAt = performance.now()) {
 
 function applyView(view: TableView, receivedAt: number) {
   useApp.setState({ shown: view })
+  bjApplyView(view, receivedAt)
   const scene = useScene.getState()
   const next = sceneFromView(view, scene)
   if (view.turn && !view.paused) next.turnEndsAt = receivedAt + view.turn.remainingMs
@@ -358,6 +360,10 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
     }
 
     default:
+      if (e.t.startsWith('bj_')) {
+        await wait(bjStep(e as Parameters<typeof bjStep>[0], view, k) * k, gen)
+        return
+      }
       sideEffects(e, view, false)
   }
 }

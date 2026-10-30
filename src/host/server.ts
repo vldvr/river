@@ -2,6 +2,21 @@ import {
   addPlayer,
   applyAction,
   blindsForLevel,
+  bjAllBet,
+  bjBegin,
+  bjApply,
+  bjBet,
+  bjBotAction,
+  bjCanStart,
+  bjCloseBets,
+  bjLegalFor,
+  bjMaxBet,
+  bjMinBet,
+  bjTotal,
+  normalizeConfig,
+  type BjAction,
+  type BjGameEvent,
+  type Card,
   canReenter,
   reentriesLeft,
   canStartHand,
@@ -34,6 +49,7 @@ import {
   parseClientMessage,
   PROTOCOL_VERSION,
   type ClientMessage,
+  type BjView,
   type HandView,
   type HostMessage,
   type Phase,
@@ -70,7 +86,7 @@ interface Member {
 }
 
 type LastAction = { kind: ActionKind | 'post' | 'allin'; amount: number }
-type HostEvent = GameEvent | ViewEvent
+type HostEvent = GameEvent | ViewEvent | BjGameEvent
 
 export interface HostSnapshot {
   v: 1
@@ -102,6 +118,10 @@ export interface HostOptions {
 
 const BOT_COLORS = ['#7aa6c2', '#c27a7a', '#8fb57a', '#b59a6a', '#9a86c4', '#6fb3a8', '#c49a6c', '#a3a3a3', '#c47ab0']
 const DISCONNECTED_TURN_MS = 10_000
+/** Пауза между раундами блэкджека. */
+const BJ_BETWEEN_MS = 2200
+/** Сколько раундов подряд без ставки, прежде чем игрок «отошёл». */
+const BJ_IDLE_ROUNDS = 3
 
 export class HostServer {
   readonly code: string
@@ -158,7 +178,12 @@ export class HostServer {
       for (const m of r.members) this.members.set(m.id, { ...m, link: null })
       // После восстановления ждём, пока все вернутся: хост снимет паузу сам.
       this.paused = this.phase === 'playing'
-      if (this.paused && this.game.hand && !this.game.hand.done && this.game.hand.toAct !== null) {
+      const r0 = this.game.bj
+      if (this.paused && r0 && r0.phase !== 'done') {
+        this.pausedRemaining = this.game.config.turnSeconds * 1000
+        const seat = r0.phase === 'betting' ? -1 : (r0.toAct?.seat ?? -1)
+        this.turn = { seat, startsAt: 0, deadline: 0, totalMs: this.pausedRemaining }
+      } else if (this.paused && this.game.hand && !this.game.hand.done && this.game.hand.toAct !== null) {
         this.pausedRemaining = this.game.config.turnSeconds * 1000
         this.turn = { seat: this.game.hand.toAct, startsAt: 0, deadline: 0, totalMs: this.pausedRemaining }
       }
@@ -315,6 +340,8 @@ export class HostServer {
         return
       case 'action':
         return this.onAction(m, msg.handNo, msg.action)
+      case 'bj':
+        return this.onBj(m, msg.round, msg.action)
       case 'chat': {
         const now = this.sched.now()
         if (now - m.lastChat < 400) return
@@ -395,6 +422,16 @@ export class HostServer {
 
   private onLeave(m: Member) {
     m.leaving = true
+    const r = this.game.bj
+    if (this.isBj && this.phase === 'playing' && r) {
+      const seat = findPlayer(this.game, m.id)?.seat
+      if (r.phase === 'playing' && r.seats.some((x) => x.id === m.id)) {
+        // Руки доигрываются стопом, место освобождается после раунда.
+        if (r.toAct?.seat === seat) this.bjForce(m, false)
+        return
+      }
+      delete r.bets[m.id]
+    }
     const h = this.game.hand
     if (this.phase === 'playing' && h && !h.done && inCurrentHand(this.game, m.id)) {
       if (h.toAct === this.seatOf(m.id)) this.act(m, { type: 'fold' }, [])
@@ -417,7 +454,8 @@ export class HostServer {
     const c = configSchema.parse(config)
     if (c.smallBlind >= c.bigBlind || c.bigBlind > c.startingStack) throw new EngineError('bad blinds')
     if (seatedPlayers(this.game).length > c.maxSeats) throw new EngineError('too many players for that table')
-    this.game.config = c
+    this.game.config = normalizeConfig(c)
+    if (seatedPlayers(this.game).length > this.game.config.maxSeats) throw new EngineError('too many players for that table')
     for (const p of this.game.players) p.stack = c.startingStack
     this.broadcastView()
     this.save()
@@ -425,7 +463,7 @@ export class HostServer {
 
   private onStart() {
     if (this.phase !== 'lobby') return
-    if (!canStartHand(this.game)) throw new EngineError('need at least two players')
+    if (!(this.isBj ? bjCanStart(this.game) : canStartHand(this.game))) throw new EngineError('need at least two players')
     this.phase = 'playing'
     this.scheduleNextHand(900)
     this.broadcastView()
@@ -573,6 +611,7 @@ export class HostServer {
     if (this.botTimer !== null) this.sched.clearTimeout(this.botTimer)
     this.botTimer = null
     if (!this.turn) return
+    if (this.isBj) return this.armBjBot(delay)
     const m = this.memberAtSeat(this.turn.seat)
     if (!m) return
     if (m.leaving) {
@@ -593,6 +632,7 @@ export class HostServer {
   private onTimeout() {
     this.turnTimer = null
     if (!this.turn) return
+    if (this.isBj) return this.bjTimeout()
     const m = this.memberAtSeat(this.turn.seat)
     if (!m) return
     this.forceAction(m, true)
@@ -667,6 +707,10 @@ export class HostServer {
     if (this.phase !== 'playing') return
     if (this.game.finished) return this.finish()
     if (this.paused) return this.broadcastView()
+    if (this.isBj) {
+      if (!bjCanStart(this.game)) return this.broadcastView()
+      return this.afterBj(bjBegin(this.game, this.rand))
+    }
     if (!canStartHand(this.game)) return this.broadcastView()
     const events = startNextHand(this.game, this.sched.now(), this.rand)
     this.afterEngine(events)
@@ -674,9 +718,191 @@ export class HostServer {
 
   private maybeStartHand() {
     if (this.phase !== 'playing' || this.paused || this.nextHandTimer !== null) return
+    if (this.isBj) {
+      const r = this.game.bj
+      if (r && r.phase !== 'done') return
+      if (bjCanStart(this.game)) this.scheduleNextHand(1200)
+      return
+    }
     const h = this.game.hand
     if (h && !h.done) return
     if (canStartHand(this.game)) this.scheduleNextHand(1200)
+  }
+
+  // ───────────── Блэкджек ─────────────
+
+  private get isBj() {
+    return this.game.config.game === 'blackjack'
+  }
+
+  private onBj(m: Member, round: number, action: { type: 'bet'; amount: number } | BjAction) {
+    const r = this.game.bj
+    if (!r || r.roundNo !== round || this.paused) return
+    if (action.type === 'bet') {
+      const events = bjBet(this.game, m.id, action.amount)
+      m.missed = 0
+      this.broadcastEvents(events)
+      this.save()
+      if (bjAllBet(this.game)) this.closeBetsSoon()
+      return
+    }
+    const seat = findPlayer(this.game, m.id)?.seat
+    if (!r.toAct || r.toAct.seat !== seat) return
+    m.missed = 0
+    this.bjAct(m, action, [])
+  }
+
+  private bjAct(m: Member, action: BjAction, prefix: ViewEvent[]) {
+    const events = bjApply(this.game, m.id, action)
+    this.clearTimers()
+    this.afterBj([...prefix, ...events])
+  }
+
+  /** Все поставили: даём фишкам долететь и раздаём. */
+  private closeBetsSoon() {
+    this.clearTimers()
+    this.turnTimer = this.sched.setTimeout(() => this.closeBets(), 600)
+  }
+
+  private closeBets() {
+    this.clearTimers()
+    const r = this.game.bj
+    if (!r || r.phase !== 'betting') return
+    for (const p of seatedPlayers(this.game)) {
+      const m = this.members.get(p.id)
+      if (!m || m.isBot || p.status !== 'active' || r.bets[p.id]) continue
+      m.missed += 1
+      if (m.missed >= BJ_IDLE_ROUNDS) setSittingOut(this.game, p.id, true)
+    }
+    this.afterBj(bjCloseBets(this.game))
+  }
+
+  private afterBj(raw: HostEvent[]) {
+    const events = raw as ViewEvent[]
+    const r = this.game.bj!
+    const delay = batchDuration(events)
+    const now = this.sched.now()
+    const full = this.game.config.turnSeconds * 1000
+    if (r.phase === 'betting') {
+      this.turn = { seat: -1, startsAt: now + delay, deadline: now + delay + full, totalMs: full }
+      if (this.paused) this.pausedRemaining = full
+      else {
+        this.armTurnTimer()
+        this.armBjBot(delay)
+      }
+      events.push({ t: 'bj_turn', seat: -1, hand: 0, totalMs: full })
+    } else if (r.phase === 'playing' && r.toAct) {
+      this.setupTurn(r.toAct.seat, delay)
+      events.push({ t: 'bj_turn', seat: r.toAct.seat, hand: r.toAct.hand, totalMs: this.turn!.totalMs })
+    } else {
+      this.turn = null
+      this.scheduleNextHand(delay + BJ_BETWEEN_MS)
+    }
+    this.broadcastEvents(events)
+    this.save()
+  }
+
+  private bjTimeout() {
+    const r = this.game.bj
+    if (!r) return
+    if (r.phase === 'betting') return this.closeBets()
+    if (r.phase !== 'playing' || !r.toAct) return
+    const m = this.memberAtSeat(r.toAct.seat)
+    if (m) this.bjForce(m, true)
+  }
+
+  /** Время вышло или игрок ушёл: рука стоит. */
+  private bjForce(m: Member, timedOut: boolean) {
+    const r = this.game.bj
+    if (!r?.toAct) return
+    const prefix: ViewEvent[] = []
+    if (timedOut) {
+      m.missed += 1
+      prefix.push({ t: 'timeout', seat: r.toAct.seat })
+      if (m.missed >= 2 && !m.isBot) setSittingOut(this.game, m.id, true)
+    }
+    this.bjAct(m, { type: 'stand' }, prefix)
+  }
+
+  private armBjBot(delay: number) {
+    const r = this.game.bj
+    if (!r) return
+    if (r.phase === 'betting') {
+      const bots = seatedPlayers(this.game).filter((p) => this.members.get(p.id)?.isBot && p.status === 'active' && !r.bets[p.id])
+      if (bots.length === 0) return
+      this.botTimer = this.sched.setTimeout(() => {
+        this.botTimer = null
+        const events: HostEvent[] = []
+        for (const p of bots) {
+          const min = bjMinBet(this.game)
+          const amount = Math.min(p.stack, bjMaxBet(this.game), min * (1 + this.rand(4)))
+          if (amount >= min) events.push(...bjBet(this.game, p.id, amount))
+        }
+        this.broadcastEvents(events)
+        this.save()
+        if (bjAllBet(this.game)) this.closeBetsSoon()
+      }, delay + 600 + this.rand(900))
+      return
+    }
+    if (r.phase !== 'playing' || !r.toAct) return
+    const m = this.memberAtSeat(r.toAct.seat)
+    if (!m) return
+    if (m.leaving) {
+      this.botTimer = this.sched.setTimeout(() => this.bjForce(m, false), delay)
+    } else if (m.isBot) {
+      this.botTimer = this.sched.setTimeout(() => {
+        this.botTimer = null
+        const legal = bjLegalFor(this.game, m.id)
+        const cur = this.game.bj
+        if (!legal || !cur?.toAct) return
+        const hand = cur.seats.find((x) => x.seat === cur.toAct!.seat)!.hands[cur.toAct.hand]!
+        this.bjAct(m, bjBotAction(hand.cards, cur.dealer[0]!, legal), [])
+      }, delay + 600 + this.rand(1100))
+    }
+  }
+
+  private bjView(m: Member): BjView | null {
+    const g = this.game
+    const r = g.bj
+    if (!r) return null
+    const gp = findPlayer(g, m.id)
+    const seats =
+      r.phase === 'betting'
+        ? seatedPlayers(g)
+            .filter((p) => p.status === 'active')
+            .map((p) => ({ seat: p.seat, id: p.id, bet: r.bets[p.id] ?? null, hands: [] }))
+        : r.seats.map((x) => ({
+            seat: x.seat,
+            id: x.id,
+            bet: null,
+            hands: x.hands.map((h) => ({
+              cards: [...h.cards],
+              bet: h.bet,
+              ...bjTotal(h.cards),
+              doubled: h.doubled,
+              done: h.done,
+              result: h.result,
+              payout: h.payout,
+            })),
+          }))
+    const dealer: (Card | null)[] = r.dealer.map((c, i) => (r.holeHidden && i === 1 ? null : c))
+    const open = dealer.filter((c): c is Card => c !== null)
+    const dt = open.length ? bjTotal(open) : null
+    return {
+      roundNo: r.roundNo,
+      phase: r.phase,
+      minBet: bjMinBet(g),
+      maxBet: bjMaxBet(g),
+      dealer: { cards: dealer, total: dt?.total ?? null, soft: dt?.soft ?? false },
+      seats,
+      toAct: r.toAct ? { ...r.toAct } : null,
+      shoeLeft: g.shoe.length,
+      you: {
+        legal: this.paused ? null : bjLegalFor(g, m.id),
+        canBet: r.phase === 'betting' && !!gp && gp.status === 'active' && gp.stack >= bjMinBet(g),
+        bet: r.bets[m.id] ?? null,
+      },
+    }
   }
 
   // ───────────── Рассылка ─────────────
@@ -711,7 +937,7 @@ export class HostServer {
   }
 
   private memberAtSeat(seat: number): Member | undefined {
-    const id = this.game.hand?.players.find((p) => p.seat === seat)?.id
+    const id = this.game.hand?.players.find((p) => p.seat === seat)?.id ?? seatedPlayers(this.game).find((p) => p.seat === seat)?.id
     return id ? this.members.get(id) : undefined
   }
 
@@ -792,6 +1018,7 @@ export class HostServer {
       blinds: h ? h.blinds : blindsForLevel(g.config, g.level),
       nextLevelInMs: nla === null || this.phase !== 'playing' ? null : Math.max(0, nla - now),
       hand,
+      bj: this.bjView(m),
       turn: this.turn
         ? {
             seat: this.turn.seat,

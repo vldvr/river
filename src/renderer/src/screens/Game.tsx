@@ -6,6 +6,8 @@ import { isHost, leaveGame } from '../net/connection'
 import { useApp } from '../store/app'
 import { ActionBar } from '../table/ActionBar'
 import { Table } from '../table/Table'
+import { BjTable } from '../table/BjTable'
+import { BjBar } from '../table/BjBar'
 import { LobbyPanel } from './LobbyPanel'
 import { CenterNotice, Results, SideActions } from './Overlays'
 import { SettingsModal } from './SettingsModal'
@@ -40,7 +42,7 @@ export function Game() {
   const host = isHost()
   return (
     <div className={`game ${isMac ? 'is-mac' : ''}`}>
-      <Table />
+      {view.config.game === 'blackjack' ? <BjTable /> : <Table />}
       <TopBar onSettings={() => setSettings(true)} onSide={() => setSide((s) => !s)} onLeave={() => setConfirmLeave(true)} />
       <div className="game__center">
         <AnimatePresence mode="wait">
@@ -49,7 +51,7 @@ export function Game() {
         </AnimatePresence>
         {view.phase === 'playing' && <CenterNotice view={view} />}
       </div>
-      {view.phase === 'playing' && <ActionBar />}
+      {view.phase === 'playing' && (view.config.game === 'blackjack' ? <BjBar /> : <ActionBar />)}
       <SideActions view={view} />
       <SidePanel open={side} onClose={() => setSide(false)} />
       <SettingsModal open={settings} onClose={() => setSettings(false)} />

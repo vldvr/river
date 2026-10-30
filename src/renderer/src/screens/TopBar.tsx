@@ -42,7 +42,12 @@ export function TopBar({ onSettings, onSide, onLeave }: { onSettings(): void; on
         <button className="topbar__code" onClick={copy} title="Скопировать код">
           Комната <span className="num">{formatCode(view.code)}</span>
         </button>
-        {view.phase === 'playing' && (
+        {view.phase === 'playing' && view.config.game === 'blackjack' && (
+          <span className="topbar__blinds">
+            Ставки от <span className="num">{chips(view.config.bigBlind)}</span> до <span className="num">{chips(view.config.bigBlind * 100)}</span>
+          </span>
+        )}
+        {view.phase === 'playing' && view.config.game !== 'blackjack' && (
           <span className="topbar__blinds">
             Блайнды <span className="num">{chips(view.blinds.sb)}/{chips(view.blinds.bb)}</span>
             {view.blinds.ante > 0 && (
