@@ -63,6 +63,7 @@ export function TopBar({ onSettings, onSide, onLeave }: { onSettings(): void; on
           </span>
         )}
         {conn === 'reconnecting' && <span className="topbar__warn">Связь потеряна, переподключаемся</span>}
+        {view.you.spectator && <span className="topbar__spect">Ты зритель: видны карты всех игроков</span>}
       </div>
       <div className="topbar__right">
         <button className="icon-btn" onClick={onSide} aria-label="Чат и история раздач">

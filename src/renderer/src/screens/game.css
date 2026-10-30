@@ -96,6 +96,11 @@
   margin-left: 12px;
 }
 
+.topbar__spect {
+  font-size: 13px;
+  color: var(--lamp);
+}
+
 .topbar__warn {
   font-size: 13px;
   color: var(--error);
@@ -228,6 +233,10 @@
 .lobby__count {
   font-size: 13px;
   color: var(--muted);
+}
+
+.lobby__reentry {
+  color: var(--lamp);
 }
 
 .lobby__locked {

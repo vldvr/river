@@ -62,6 +62,7 @@ export function LobbyPanel({ view }: { view: TableView }) {
               {p.isHost && <Crown size={14} weight="fill" className="lobby__crown" aria-label="хост" />}
               {p.isBot && <Robot size={14} className="lobby__bot" aria-label="бот" />}
               {!p.isBot && !p.connected && <span className="lobby__off">нет связи</span>}
+              {p.buyIns > 1 && <span className="lobby__off lobby__reentry">+{p.buyIns - 1}</span>}
               {host && !p.isHost && (
                 <button className="lobby__kick" onClick={() => send({ t: 'kick', id: p.id })} aria-label={`Убрать ${p.name}`}>
                   <X size={14} />
@@ -242,6 +243,16 @@ function ConfigForm({ config }: { config: GameConfig }) {
           ))}
         </div>
       </div>
+
+      {!bj && (
+        <div className="row">
+          <div className="row__text">
+            <span>Зрители видят карты</span>
+            <span className="row__hint">Зрители и выбывшие смотрят раздачу с открытыми картами</span>
+          </div>
+          <Switch checked={c.spectatorsSeeCards !== false} onChange={(v) => update({ spectatorsSeeCards: v })} label="Зрители видят карты" />
+        </div>
+      )}
 
       <div className="field">
         <span className="field__label">Время на ход</span>

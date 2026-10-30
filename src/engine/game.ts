@@ -31,6 +31,8 @@ export interface GameConfig {
   reentries: number
   turnSeconds: number
   maxSeats: number
+  /** Зрители и выбывшие видят карты всех игроков. */
+  spectatorsSeeCards: boolean
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -44,6 +46,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   reentries: 1,
   turnSeconds: 25,
   maxSeats: 9,
+  spectatorsSeeCards: true,
 }
 
 export type PlayerStatus = 'active' | 'sittingOut' | 'busted' | 'left'

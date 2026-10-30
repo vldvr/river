@@ -286,6 +286,13 @@
   color: var(--text);
 }
 
+.seat__reentry {
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--lamp);
+  opacity: 0.85;
+}
+
 .seat.is-hero .seat__name {
   color: var(--text);
 }

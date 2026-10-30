@@ -970,6 +970,13 @@ export class HostServer {
     players.sort((a, b) => (a.seat ?? 99) - (b.seat ?? 99))
 
     let hand: HandView | null = null
+    // Зритель: не сидит в этой раздаче и не может в неё вмешаться (нет места или выбыл).
+    const me = findPlayer(g, m.id)
+    const spectator =
+      g.config.spectatorsSeeCards !== false &&
+      !!h &&
+      !h.players.some((p) => p.id === m.id) &&
+      (!me || me.status === 'busted')
     if (h) {
       hand = {
         handNo: h.handNo,
@@ -981,7 +988,7 @@ export class HostServer {
         board: [...h.board],
         pot: h.players.reduce((s, p) => s + p.committed - p.bet, 0),
         seats: h.players.map((p) => {
-          const visible = p.id === m.id || (h.revealed && !p.folded) || this.shown.has(p.seat)
+          const visible = p.id === m.id || (h.revealed && !p.folded) || this.shown.has(p.seat) || spectator
           return {
             seat: p.seat,
             id: p.id,
@@ -1039,6 +1046,7 @@ export class HostServer {
       })),
       you: {
         id: m.id,
+        spectator,
         legal: this.paused ? null : legalFor(g, m.id),
         canRebuy: !!gp && canReenter(g, gp),
         reentriesLeft: gp ? Math.min(99, reentriesLeft(g, gp)) : 0,

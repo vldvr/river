@@ -88,6 +88,9 @@ function secretCards(server: HostServer, viewerId: string): string[] {
   const g = server.state.game
   const h = g.hand
   if (!h) return []
+  // Вылетевшим зрителям карты показываются нарочно.
+  const me = g.players.find((p) => p.id === viewerId)
+  if (!h.players.some((p) => p.id === viewerId) && (!me || me.status === 'busted')) return []
   return h.players.filter((p) => p.id !== viewerId && !(h.revealed && !p.folded)).flatMap((p) => p.hole)
 }
 
@@ -300,5 +303,35 @@ describe('HostServer blackjack', () => {
     }
     expect(rounds).toBeGreaterThanOrEqual(15)
     expect(H.server.state.game.bj).not.toBeNull()
+  })
+})
+
+describe('HostServer spectators', () => {
+  it('spectators see every hole card, seated players only their own', () => {
+    const H = harness({ format: 'cash', maxSeats: 2 }, 41)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    host.t.send({ t: 'addBot' })
+    H.flush()
+    const watcher = H.connect('Зритель', 'token-watcher-0000000', false)
+    host.t.send({ t: 'start' })
+    H.flush()
+    for (let i = 0; i < 20 && !watcher.view?.hand; i++) H.tick(300)
+    const seen = (v: typeof watcher.view) => v!.hand!.seats.filter((s) => s.cards).length
+    expect(watcher.view!.you.spectator).toBe(true)
+    expect(seen(watcher.view)).toBe(2)
+    expect(host.view!.you.spectator).toBe(false)
+    expect(seen(host.view)).toBe(1)
+  })
+
+  it('the host can turn spectator cards off', () => {
+    const H = harness({ format: 'cash', maxSeats: 2, spectatorsSeeCards: false }, 41)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    host.t.send({ t: 'addBot' })
+    H.flush()
+    const watcher = H.connect('Зритель', 'token-watcher-0000000', false)
+    host.t.send({ t: 'start' })
+    H.flush()
+    for (let i = 0; i < 20 && !watcher.view?.hand; i++) H.tick(300)
+    expect(watcher.view!.hand!.seats.filter((s) => s.cards).length).toBe(0)
   })
 })

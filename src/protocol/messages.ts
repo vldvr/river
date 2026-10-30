@@ -29,6 +29,7 @@ export const configSchema = z.object({
   reentries: z.number().int().min(0).max(99),
   turnSeconds: z.number().int().min(5).max(300),
   maxSeats: z.number().int().min(1).max(9),
+  spectatorsSeeCards: z.boolean().default(true),
 })
 
 export const clientMessage = z.discriminatedUnion('t', [

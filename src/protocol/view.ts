@@ -116,6 +116,8 @@ export interface TableView {
   results: { id: string; name: string; color: string; place: number | null; net: number; buyIns: number }[]
   you: {
     id: string
+    /** Видит чужие карты как зритель. */
+    spectator: boolean
     legal: LegalActions | null
     canRebuy: boolean
     /** Сколько повторных входов осталось (99: без ограничений). */

@@ -25,6 +25,8 @@ export function ActionBar() {
   const myTurn = !!legal && heroSeat !== null && toAct === heroSeat && legal.seat === heroSeat && !view?.paused
   const me = heroSeat !== null ? sceneSeats[heroSeat] : undefined
   const canPre = live && !!me && !me.folded && !me.allIn && !myTurn
+  // Если до меня уже есть ставка (например, на префлопе без блайнда), чек невозможен: это просто фолд.
+  const mustCall = !!me && Object.values(sceneSeats).some((s) => s.bet > me.bet)
 
   const [pre, setPre] = useState<Pre>('none')
   const [amount, setAmount] = useState(0)
@@ -93,9 +95,13 @@ export function ActionBar() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'text')) return
+      if (el.tagName === 'BUTTON' && (e.code === 'Enter' || e.code === 'Space')) return
       if (e.code === 'KeyF') act({ type: 'fold' })
       else if (e.code === 'KeyC') act(legal.canCheck ? { type: 'check' } : { type: 'call' })
-      else if ((e.code === 'KeyR' || e.code === 'Enter') && legal.canRaise) act(raiseAction())
+      else if (e.code === 'KeyR' && legal.canRaise) act(raiseAction())
+      // Enter ставит рейз только из поля суммы: на кнопке Enter её же и нажимает,
+      // и раньше «Колл» + Enter отправлял рейз раньше колла.
+      else if (e.code === 'Enter' && el.classList.contains('actionbar__amount') && legal.canRaise) act(raiseAction())
       else if (e.code === 'ArrowUp' || e.code === 'ArrowRight') setAmount((a) => Math.min(legal.maxTo, a + (view?.blinds.bb ?? 1)))
       else if (e.code === 'ArrowDown' || e.code === 'ArrowLeft') setAmount((a) => Math.max(legal.minTo, a - (view?.blinds.bb ?? 1)))
       else return
@@ -187,7 +193,7 @@ export function ActionBar() {
             exit={{ opacity: 0, y: 8, transition: { duration: 0.12 } }}
           >
             <PreToggle on={pre === 'checkFold'} onClick={() => setPre(pre === 'checkFold' ? 'none' : 'checkFold')}>
-              Чек или фолд
+              {mustCall ? 'Фолд' : 'Чек или фолд'}
             </PreToggle>
             <PreToggle on={pre === 'callAny'} onClick={() => setPre(pre === 'callAny' ? 'none' : 'callAny')}>
               Колл любой

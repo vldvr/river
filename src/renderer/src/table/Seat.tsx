@@ -6,7 +6,7 @@ import { Avatar } from '../components/Avatar'
 import { PlayingCard } from '../components/PlayingCard'
 import { ChipStack } from '../components/Chips'
 import { sound } from '../audio/sound'
-import { chips } from '../lib/format'
+import { chips, plural } from '../lib/format'
 import type { SceneSeat } from '../store/scene'
 import { useApp } from '../store/app'
 import { HERO_CARD, SMALL_CARD, shadowFor, type SeatPlace } from './geometry'
@@ -22,6 +22,10 @@ const LABEL: Record<string, string> = {
 }
 
 const AVATAR = 78
+
+function reentryLabel(n: number): string {
+  return `${n} ${plural(n, 'повторный вход', 'повторных входа', 'повторных входов')}`
+}
 
 interface SeatProps {
   place: SeatPlace
@@ -79,6 +83,7 @@ export const Seat = memo(function Seat({ place, player, avatar, seat, acting, tu
       <div className="seat__plate">
         <span className="seat__name">{player.name}</span>
         <span className="seat__stack num">{status ?? (seat?.allIn ? 'Олл-ин' : chips(stack))}</span>
+        {player.buyIns > 1 && <span className="seat__reentry">{reentryLabel(player.buyIns - 1)}</span>}
       </div>
 
       <AnimatePresence>
