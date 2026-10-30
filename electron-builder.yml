@@ -35,4 +35,4 @@ publish:
   provider: github
   owner: vldvr
   repo: river
-  releaseType: release
+  releaseType: draft
