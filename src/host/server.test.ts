@@ -241,4 +241,23 @@ describe('HostServer limits', () => {
     expect(server.state.members.length).toBe(16)
     expect(say('late-token-000000000000').got[0]).toMatchObject({ t: 'reject', reason: 'full' })
   })
+
+  it('a rejected bet does not freeze the turn timer', () => {
+    const H = harness({ format: 'cash', turnSeconds: 10 }, 21)
+    const host = H.connect('Хост', 'host-token-0000000000', false)
+    host.t.send({ t: 'addBot' })
+    host.t.send({ t: 'start' })
+    H.flush()
+    let guard = 0
+    while (!host.view?.you.legal && guard++ < 200) H.tick(300)
+    const v = host.view!
+    host.t.send({ t: 'action', handNo: v.hand!.handNo, action: { type: 'raise', to: 1 } })
+    H.flush()
+    expect(host.inbox.some((m) => m.t === 'error')).toBe(true)
+    const hand = v.hand!.handNo
+    // Время хода (10 с) плюс показ раздачи.
+    for (let i = 0; i < 6; i++) H.tick(3000)
+    const after = H.server.state.game.hand!
+    expect(after.handNo > hand || after.toAct !== v.you.legal!.seat).toBe(true)
+  })
 })

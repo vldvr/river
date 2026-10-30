@@ -85,6 +85,7 @@ function handlers(): SessionHandlers {
       backHome(text)
     },
     onError(message) {
+      set({ rejected: useApp.getState().rejected + 1 })
       const hit = ENGINE_ERRORS.find(([re]) => re.test(message))
       useApp.getState().toast(hit ? hit[1] : 'Хост не принял действие', 'error')
     },

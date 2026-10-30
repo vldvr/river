@@ -373,8 +373,9 @@ export class HostServer {
   }
 
   private act(m: Member, action: PlayerAction, prefix: ViewEvent[]) {
-    this.clearTimers()
+    // Сначала движок: если действие отклонено, таймер хода должен продолжать идти.
     const events = applyAction(this.game, m.id, action)
+    this.clearTimers()
     this.afterEngine([...prefix, ...events])
   }
 

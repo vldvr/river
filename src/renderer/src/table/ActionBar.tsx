@@ -29,6 +29,8 @@ export function ActionBar() {
   const [pre, setPre] = useState<Pre>('none')
   const [amount, setAmount] = useState(0)
   const [sentKey, setSentKey] = useState<string | null>(null)
+  const rejected = useApp((s) => s.rejected)
+  useEffect(() => setSentKey(null), [rejected])
   // Ключ хода: улица и доска нужны, иначе после прочеканной улицы следующий ход выглядел бы уже сделанным.
   const turnKey = `${handNo}:${hand?.street}:${hand?.board.length ?? 0}:${hand?.currentBet ?? 0}:${legal?.toCall ?? 0}:${legal?.minTo ?? 0}`
 
@@ -79,7 +81,12 @@ export function ActionBar() {
   const waiting = sentKey === turnKey
   const visible = myTurn && !waiting
 
-  const raiseAction = (): PlayerAction => (legal && amount >= legal.maxTo ? { type: 'allin' } : { type: 'raise', to: amount })
+  // Сумму из поля всегда приводим к допустимой: меньше минимума станет минимумом, больше стека станет олл-ином.
+  const raiseAction = (): PlayerAction => {
+    if (!legal) return { type: 'check' }
+    const to = Math.max(legal.minTo, Math.min(legal.maxTo, Math.round(Number.isFinite(amount) ? amount : legal.minTo)))
+    return to >= legal.maxTo ? { type: 'allin' } : { type: 'raise', to }
+  }
 
   useEffect(() => {
     if (!visible || !legal) return

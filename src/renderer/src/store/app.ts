@@ -67,6 +67,8 @@ interface AppState {
   chat: ChatLine[]
   unread: number
   log: LogLine[]
+  /** Растёт, когда хост отклонил действие: панель действий снова показывается. */
+  rejected: number
   toasts: Toast[]
   update: UpdateState
   appVersion: string
@@ -122,6 +124,7 @@ export const useApp = create<AppState>((set, get) => ({
   chat: [],
   unread: 0,
   log: [],
+  rejected: 0,
   toasts: [],
   update: { state: 'idle' },
   appVersion: '0.0.0',
