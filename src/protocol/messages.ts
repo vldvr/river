@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { TableView, ViewEvent } from './view.ts'
 
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
 export const APP_ID = `river-holdem-v${PROTOCOL_VERSION}`
 
 /** Аватар: webp/png/jpeg data-URL, до ~48 КБ. */
@@ -25,7 +25,7 @@ export const configSchema = z.object({
   bigBlind: z.number().int().min(2).max(2_000_000),
   antes: z.boolean(),
   levelMinutes: z.number().int().min(0).max(120),
-  allowRebuy: z.boolean(),
+  reentries: z.number().int().min(0).max(99),
   turnSeconds: z.number().int().min(5).max(300),
   maxSeats: z.number().int().min(2).max(9),
 })

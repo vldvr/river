@@ -1,5 +1,5 @@
 import { GameSession, type Profile, type SessionHandlers } from '../../../client/session.ts'
-import type { GameConfig } from '../../../engine/index.ts'
+import { DEFAULT_CONFIG, type GameConfig } from '../../../engine/index.ts'
 import type { ClientMessage, RejectReason } from '../../../protocol/index.ts'
 import { enqueue, resetScene, viewUpdate } from '../choreo/choreographer'
 import { sound } from '../audio/sound'
@@ -144,7 +144,9 @@ function onRelay(status: RelayStatus, error?: Error) {
 
 export async function createGame() {
   const code = randomRoomCode()
-  const config = loadRaw<GameConfig>('lastConfig') ?? undefined
+  const saved = loadRaw<Partial<GameConfig>>('lastConfig')
+  // Сохранённые настройки старых версий дополняем значениями по умолчанию.
+  const config: GameConfig | undefined = saved ? { ...DEFAULT_CONFIG, ...pickConfig(saved) } : undefined
   const me = await profileFor(code)
   set({ role: 'host', code, conn: 'connecting', homeError: null })
   runtime = new HostRuntime({ code, hostToken: me.token, relaySecret: randomHex(32), appVersion: useApp.getState().appVersion, config, onRelay })
@@ -260,4 +262,12 @@ export function isHost() {
 
 export function latency(): number | null {
   return session?.latency ?? null
+}
+
+function pickConfig(c: Partial<GameConfig>): Partial<GameConfig> {
+  const out: Partial<GameConfig> = {}
+  for (const k of Object.keys(DEFAULT_CONFIG) as (keyof GameConfig)[]) {
+    if (c[k] !== undefined && typeof c[k] === typeof DEFAULT_CONFIG[k]) (out as Record<string, unknown>)[k] = c[k]
+  }
+  return out
 }

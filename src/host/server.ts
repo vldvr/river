@@ -2,6 +2,8 @@ import {
   addPlayer,
   applyAction,
   blindsForLevel,
+  canReenter,
+  reentriesLeft,
   canStartHand,
   createGame,
   cryptoRandomInt,
@@ -142,7 +144,9 @@ export class HostServer {
 
     const r = opts.restore
     if (r) {
-      this.game = r.game
+      // Сохранение могло остаться от старой версии: недостающее берём по умолчанию.
+      this.game = { ...r.game, bustCounter: r.game.bustCounter ?? 0, config: { ...DEFAULT_CONFIG, ...r.game.config } }
+      for (const p of this.game.players) p.bustSeq ??= null
       this.phase = r.phase
       this.seq = r.seq
       this.kicked = new Set(r.kicked)
@@ -809,7 +813,8 @@ export class HostServer {
       you: {
         id: m.id,
         legal: this.paused ? null : legalFor(g, m.id),
-        canRebuy: g.config.format === 'cash' && g.config.allowRebuy && gp?.status === 'busted',
+        canRebuy: !!gp && canReenter(g, gp),
+        reentriesLeft: gp ? Math.min(99, reentriesLeft(g, gp)) : 0,
         canShow: !!h && h.done && !!hp && !this.shown.has(hp.seat) && !(h.revealed && !hp.folded),
       },
     }

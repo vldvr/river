@@ -22,8 +22,8 @@ export interface GameConfig {
   antes: boolean
   /** Турнир: длина уровня блайндов, 0 = блайнды не растут. */
   levelMinutes: number
-  /** Кэш: можно докупиться после вылета. */
-  allowRebuy: boolean
+  /** Сколько раз можно войти снова после вылета (турнир и кэш). UNLIMITED_REENTRIES: без ограничений. */
+  reentries: number
   turnSeconds: number
   maxSeats: number
 }
@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   bigBlind: 20,
   antes: false,
   levelMinutes: 10,
-  allowRebuy: true,
+  reentries: 1,
   turnSeconds: 25,
   maxSeats: 9,
 }
@@ -51,6 +51,8 @@ export interface GamePlayer {
   buyIns: number
   place: number | null
   isBot: boolean
+  /** Порядковый номер вылета: кто вылетел позже, тот выше в турнире. */
+  bustSeq: number | null
 }
 
 export interface GameState {
@@ -62,6 +64,7 @@ export interface GameState {
   startedAt: number | null
   hand: HandState | null
   finished: boolean
+  bustCounter: number
 }
 
 export type GameEvent =
@@ -72,6 +75,18 @@ export type GameEvent =
   | { t: 'finish'; standings: { id: string; place: number }[] }
 
 export const MAX_SEATS = 9
+export const UNLIMITED_REENTRIES = 99
+
+/** Сколько повторных входов осталось у игрока. */
+export function reentriesLeft(g: GameState, p: GamePlayer): number {
+  if (g.config.reentries >= UNLIMITED_REENTRIES) return Infinity
+  return Math.max(0, g.config.reentries - (p.buyIns - 1))
+}
+
+/** Вылетевший игрок может войти снова прямо сейчас. */
+export function canReenter(g: GameState, p: GamePlayer): boolean {
+  return !g.finished && p.status === 'busted' && p.place === null && reentriesLeft(g, p) > 0
+}
 
 export function createGame(config: GameConfig): GameState {
   return {
@@ -83,6 +98,7 @@ export function createGame(config: GameConfig): GameState {
     startedAt: null,
     hand: null,
     finished: false,
+    bustCounter: 0,
   }
 }
 
@@ -118,6 +134,7 @@ export function addPlayer(
     buyIns: 1,
     place: null,
     isBot: p.isBot ?? false,
+    bustSeq: null,
   }
   g.players.push(player)
   return player
@@ -251,26 +268,21 @@ function settle(g: GameState): GameEvent[] {
     // Кто начал раздачу с большим стеком, занимает место выше.
     const startOf = (id: string) => h.players.find((x) => x.id === id)!.startStack
     busted.sort((a, b) => startOf(a.id) - startOf(b.id))
-    let remaining = g.players.filter((p) => p.place === null && p.status !== 'left' && p.stack > 0).length
-    for (let i = 0; i < busted.length; i++) {
-      const p = busted[i]!
+    const remaining = g.players.filter((p) => p.place === null && p.status !== 'left' && p.stack > 0).length
+    const final = remaining <= 1
+    // Без повторных входов место известно сразу. С ними кто-то ещё может вернуться,
+    // поэтому места раздаются в конце по порядку вылета (иначе номера могли бы совпасть).
+    const placed = final || g.config.reentries === 0 ? busted : []
+    for (const p of busted) {
       p.status = 'busted'
-      p.place = remaining + (busted.length - i)
-      events.push({ t: 'bust', id: p.id, seat: p.seat, place: p.place })
+      p.bustSeq = ++g.bustCounter
     }
-    remaining = g.players.filter((p) => p.place === null && p.status !== 'left' && p.stack > 0).length
-    if (remaining <= 1) {
-      const winner = g.players.find((p) => p.place === null && p.status !== 'left' && p.stack > 0)
-      if (winner) winner.place = 1
-      g.finished = true
-      events.push({
-        t: 'finish',
-        standings: g.players
-          .filter((p) => p.place !== null)
-          .sort((a, b) => a.place! - b.place!)
-          .map((p) => ({ id: p.id, place: p.place! })),
-      })
+    for (let i = 0; i < placed.length; i++) {
+      const p = placed[i]!
+      p.place = remaining + (placed.length - i)
     }
+    for (const p of busted) events.push({ t: 'bust', id: p.id, seat: p.seat, place: p.place })
+    if (final) events.push(...finishTournament(g))
   } else {
     for (const p of busted) {
       p.status = 'busted'
@@ -280,14 +292,37 @@ function settle(g: GameState): GameEvent[] {
   return events
 }
 
+/** Конец турнира: победитель первый, ждавшие повторного входа занимают места по порядку вылета. */
+function finishTournament(g: GameState): GameEvent[] {
+  const alive = g.players.filter((p) => p.place === null && p.status !== 'left' && p.stack > 0)
+  if (alive.length === 1) alive[0]!.place = 1
+  const used = new Set(g.players.map((p) => p.place).filter((x): x is number => x !== null))
+  const free: number[] = []
+  for (let i = 1; i <= g.players.length; i++) if (!used.has(i)) free.push(i)
+  const pending = g.players.filter((p) => p.place === null).sort((a, b) => (b.bustSeq ?? 0) - (a.bustSeq ?? 0))
+  pending.forEach((p, i) => (p.place = free[i] ?? g.players.length))
+  g.finished = true
+  return [
+    {
+      t: 'finish',
+      standings: g.players
+        .filter((p) => p.place !== null)
+        .sort((a, b) => a.place! - b.place!)
+        .map((p) => ({ id: p.id, place: p.place! })),
+    },
+  ]
+}
+
+/** Повторный вход: в кэше докупка, в турнире новый стек, пока турнир не кончился. */
 export function rebuy(g: GameState, id: string): GameEvent[] {
   const p = findPlayer(g, id)
   if (!p) throw new EngineError('no such player')
-  if (g.config.format !== 'cash' || !g.config.allowRebuy) throw new EngineError('rebuys are off')
   if (p.status !== 'busted') throw new EngineError('still has chips')
+  if (!canReenter(g, p)) throw new EngineError('rebuys are off')
   p.stack = g.config.startingStack
   p.buyIns += 1
   p.status = 'active'
+  p.bustSeq = null
   return [{ t: 'rebuy', id: p.id, seat: p.seat, stack: p.stack }]
 }
 
@@ -306,26 +341,17 @@ export function leave(g: GameState, id: string): GameEvent[] {
   if (!p) return []
   if (inCurrentHand(g, id)) throw new EngineError('fold first')
   const events: GameEvent[] = []
-  if (g.config.format === 'tournament' && g.startedAt !== null && p.place === null) {
+  if (g.config.format === 'tournament' && g.startedAt !== null && p.place === null && p.stack > 0) {
+    // Уходит с фишками: ниже всех, кто ещё играет. Вылетевший раньше получит место в конце по порядку вылета.
     const remaining = g.players.filter((x) => x.place === null && x.status !== 'left' && x.stack > 0)
     p.place = remaining.length
     p.stack = 0
     events.push({ t: 'bust', id: p.id, seat: p.seat, place: p.place })
   }
   p.status = 'left'
-  if (g.config.format === 'tournament' && g.startedAt !== null) {
+  if (g.config.format === 'tournament' && g.startedAt !== null && !g.finished) {
     const alive = g.players.filter((x) => x.place === null && x.status !== 'left' && x.stack > 0)
-    if (alive.length === 1 && !g.finished) {
-      alive[0]!.place = 1
-      g.finished = true
-      events.push({
-        t: 'finish',
-        standings: g.players
-          .filter((x) => x.place !== null)
-          .sort((a, b) => a.place! - b.place!)
-          .map((x) => ({ id: x.id, place: x.place! })),
-      })
-    }
+    if (alive.length <= 1) events.push(...finishTournament(g))
   }
   return events
 }

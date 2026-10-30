@@ -38,6 +38,7 @@ export function Results({ view }: { view: TableView }) {
             <span className="results__place num">{tournament ? r.place : i + 1}</span>
             <span className="results__dot" style={{ background: r.color }} />
             <span className="results__name">{r.name}</span>
+            {r.buyIns > 1 && <span className="results__buyins">входов: {r.buyIns}</span>}
             <span className={`results__net num ${r.net > 0 ? 'is-plus' : r.net < 0 ? 'is-minus' : ''}`}>
               {tournament ? '' : signedChips(r.net)}
             </span>
@@ -108,11 +109,15 @@ export function SideActions({ view }: { view: TableView }) {
 
   let content: React.ReactNode = null
   if (view.you.canRebuy) {
+    const left = view.you.reentriesLeft
     content = (
       <div className="sideact panel">
-        <span>Фишки закончились</span>
+        <span>
+          Фишки закончились
+          {left < 99 && <span className="sideact__hint">, {left === 1 ? 'остался последний вход' : `ещё ${left} входа`}</span>}
+        </span>
         <button className="btn btn--primary" onClick={() => send({ t: 'rebuy' })}>
-          Докупить <span className="num">{chips(view.config.startingStack)}</span>
+          {view.config.format === 'tournament' ? 'Войти снова' : 'Докупить'} <span className="num">{chips(view.config.startingStack)}</span>
         </button>
       </div>
     )

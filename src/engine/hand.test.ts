@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import { fullDeck, seededRandomInt, shuffledDeck, type Card } from './cards.ts'
 import { act, legalActions, startHand, type HandEvent, type HandState } from './hand.ts'
-import { applyAction, addPlayer, canStartHand, chipsInPlay, createGame, legalFor, rebuy, startNextHand, DEFAULT_CONFIG } from './game.ts'
+import { applyAction, addPlayer, canReenter, canStartHand, chipsInPlay, createGame, legalFor, rebuy, startNextHand, DEFAULT_CONFIG, type GameState } from './game.ts'
 
 /** Колода, в которой нужные карты лягут нужным местам. */
 function rigged(seats: number[], button: number, holes: Record<number, [Card, Card]>, board: Card[]): Card[] {
@@ -260,4 +260,83 @@ describe('game', () => {
       { numRuns: 3000 },
     )
   })
+
+  it('limits cash rebuys to the configured number of re-entries', () => {
+    const g = createGame({ ...DEFAULT_CONFIG, format: 'cash', startingStack: 100, reentries: 1 })
+    addPlayer(g, { id: 'a', name: 'A' })
+    addPlayer(g, { id: 'b', name: 'B' })
+    const rand = seededRandomInt(5)
+    const bustSomeone = () => {
+      while (g.players.every((p) => p.status !== 'busted')) {
+        startNextHand(g, 0, rand)
+        while (g.hand && !g.hand.done) {
+          const p = g.hand.players.find((x) => x.seat === g.hand!.toAct)!
+          applyAction(g, p.id, legalFor(g, p.id)!.canRaise ? { type: 'allin' } : { type: 'call' })
+        }
+      }
+      return g.players.find((p) => p.status === 'busted')!
+    }
+    const first = bustSomeone()
+    rebuy(g, first.id)
+    let next = bustSomeone()
+    while (next.buyIns < 2) {
+      rebuy(g, next.id)
+      next = bustSomeone()
+    }
+    expect(canReenter(g, next)).toBe(false)
+    expect(() => rebuy(g, next.id)).toThrow()
+  })
+
+  it('tournament re-entry: busted players come back while they can, places stay consistent', () => {
+    let reentered = 0
+    for (let seed = 1; seed <= 12; seed++) {
+      const g = createGame({ ...DEFAULT_CONFIG, startingStack: 200, levelMinutes: 1, reentries: 2 })
+      for (let i = 0; i < 4; i++) addPlayer(g, { id: `p${i}`, name: `P${i}` })
+      const rand = seededRandomInt(seed)
+      let now = 0
+      let guard = 0
+      while (!g.finished && guard++ < 3000) {
+        now += 20_000
+        startNextHand(g, now, rand)
+        while (g.hand && !g.hand.done) {
+          const p = g.hand.players.find((x) => x.seat === g.hand!.toAct)!
+          const la = legalFor(g, p.id)!
+          applyAction(g, p.id, la.canRaise && rand(8) === 0 ? { type: 'allin' } : la.canCheck ? { type: 'check' } : { type: 'call' })
+        }
+        for (const p of g.players) {
+          if (p.status === 'busted' && p.place === null && !g.finished) {
+            expect(canReenter(g, p)).toBe(p.buyIns < 3)
+            if (canReenter(g, p)) {
+              rebuy(g, p.id)
+              reentered++
+            }
+          }
+        }
+      }
+      expect(g.finished).toBe(true)
+      expectPlaces(g)
+      expect(g.players.every((p) => p.buyIns <= 3)).toBe(true)
+    }
+    expect(reentered).toBeGreaterThan(0)
+  })
+
+  it('places players who were still deciding when the tournament ended', () => {
+    const g = createGame({ ...DEFAULT_CONFIG, startingStack: 100, levelMinutes: 0, reentries: 1 })
+    for (let i = 0; i < 3; i++) addPlayer(g, { id: `p${i}`, name: `P${i}` })
+    const rand = seededRandomInt(3)
+    let guard = 0
+    // Никто не возвращается: ждавшие решения получают места при финише по порядку вылета.
+    while (!g.finished && guard++ < 2000) {
+      startNextHand(g, 0, rand)
+      while (g.hand && !g.hand.done) {
+        const p = g.hand.players.find((x) => x.seat === g.hand!.toAct)!
+        applyAction(g, p.id, legalFor(g, p.id)!.canRaise ? { type: 'allin' } : { type: 'call' })
+      }
+    }
+    expect(g.players.map((p) => p.place).sort()).toEqual([1, 2, 3])
+  })
 })
+
+function expectPlaces(g: GameState) {
+  expect(g.players.map((p) => p.place).sort()).toEqual([1, 2, 3, 4])
+}

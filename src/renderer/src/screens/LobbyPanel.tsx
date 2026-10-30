@@ -1,7 +1,7 @@
 import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Copy, Crown, Robot, X, CaretDown, SlidersHorizontal } from '@phosphor-icons/react'
-import type { GameConfig } from '../../../engine/index.ts'
+import { UNLIMITED_REENTRIES, type GameConfig } from '../../../engine/index.ts'
 import type { TableView } from '../../../protocol/index.ts'
 import { Avatar } from '../components/Avatar'
 import { Modal } from '../components/Modal'
@@ -105,21 +105,24 @@ export function LobbyPanel({ view }: { view: TableView }) {
   )
 }
 
+const REENTRY_OPTIONS = [0, 1, 2, 3, UNLIMITED_REENTRIES]
+
+function reentryText(n: number): string {
+  if (n === 0) return 'без повторных входов'
+  if (n >= UNLIMITED_REENTRIES) return 'повторные входы без лимита'
+  return `повторных входов: ${n}`
+}
+
 function ConfigSummary({ config: c }: { config: GameConfig }) {
   const parts = [
     c.format === 'tournament' ? 'Турнир' : 'Кэш-игра',
     `стек ${chips(c.startingStack)}`,
     `блайнды ${chips(c.smallBlind)}/${chips(c.bigBlind)}`,
-    c.format === 'tournament'
-      ? c.levelMinutes
-        ? `растут каждые ${c.levelMinutes} мин`
-        : 'не растут'
-      : c.allowRebuy
-        ? 'докупка есть'
-        : 'без докупки',
+    c.format === 'tournament' ? (c.levelMinutes ? `растут каждые ${c.levelMinutes} мин` : 'не растут') : null,
+    reentryText(c.reentries),
     `${c.turnSeconds} с на ход`,
   ]
-  return <p className="lobby__rules">{parts.join(', ')}</p>
+  return <p className="lobby__rules">{parts.filter(Boolean).join(', ')}</p>
 }
 
 function ConfigForm({ config }: { config: GameConfig }) {
@@ -187,12 +190,18 @@ function ConfigForm({ config }: { config: GameConfig }) {
             <Switch checked={c.antes} onChange={(v) => update({ antes: v })} label="Анте" />
           </div>
         </>
-      ) : (
-        <div className="row">
-          <span>Докупка после вылета</span>
-          <Switch checked={c.allowRebuy} onChange={(v) => update({ allowRebuy: v })} label="Докупка" />
+      ) : null}
+
+      <div className="field">
+        <span className="field__label">{c.format === 'tournament' ? 'Повторные входы после вылета' : 'Докупки после вылета'}</span>
+        <div className="segmented">
+          {REENTRY_OPTIONS.map((n) => (
+            <button key={n} aria-pressed={c.reentries === n} onClick={() => update({ reentries: n })}>
+              {n === 0 ? 'нет' : n >= UNLIMITED_REENTRIES ? 'без лимита' : n}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       <div className="field">
         <span className="field__label">Время на ход</span>

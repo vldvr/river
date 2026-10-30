@@ -89,6 +89,8 @@ export interface TableView {
     id: string
     legal: LegalActions | null
     canRebuy: boolean
+    /** Сколько повторных входов осталось (99: без ограничений). */
+    reentriesLeft: number
     canShow: boolean
   }
 }
