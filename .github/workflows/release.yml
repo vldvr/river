@@ -38,5 +38,8 @@ jobs:
         run: gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "Ривер $TAG" --notes-file .github/release-notes.md
       - name: Собрать установщик и portable, выложить в черновик
         run: npx electron-builder --win --x64 --publish always
+        env:
+          # Черновик независимо от конфига на теге.
+          EP_DRAFT: 'true'
       - name: Опубликовать релиз
         run: gh release edit "$TAG" --draft=false --latest
