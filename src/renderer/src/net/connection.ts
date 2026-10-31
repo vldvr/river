@@ -31,6 +31,17 @@ async function profileFor(room: string): Promise<Profile> {
     avatar: p.avatar,
     token: await roomToken(p.token, room),
     appVersion: useApp.getState().appVersion,
+    rating: p.rating,
+    ratingGames: p.ratingGames,
+  }
+}
+
+function syncProfileRating(view: import('../../../protocol/index.ts').TableView) {
+  const { you, profile, setProfile } = useApp.getState()
+  const player = view.players.find((p) => p.id === you)
+  if (!player || player.ratingGames < profile.ratingGames) return
+  if (player.rating !== profile.rating || player.ratingGames !== profile.ratingGames) {
+    setProfile({ rating: player.rating, ratingGames: player.ratingGames })
   }
 }
 
@@ -56,14 +67,17 @@ function handlers(): SessionHandlers {
     onWelcome(you, view, avatars) {
       reconnecting = false
       set({ you, view, avatars, conn: 'online', screen: 'game', code: view.code, homeError: null })
+      syncProfileRating(view)
       resetScene(view)
     },
     onView(view) {
       set({ view })
+      syncProfileRating(view)
       viewUpdate(view)
     },
     onEvents(_seq, events, view) {
       set({ view })
+      syncProfileRating(view)
       enqueue(events, view)
     },
     onAvatar(id, avatar) {

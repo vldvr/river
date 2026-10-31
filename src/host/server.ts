@@ -84,6 +84,8 @@ interface Member {
   missed: number
   leaving: boolean
   lastChat: number
+  rating: number
+  ratingGames: number
 }
 
 type LastAction = { kind: ActionKind | 'post' | 'allin'; amount: number }
@@ -182,7 +184,7 @@ export class HostServer {
       this.showdown = r.showdown
       this.winners = r.winners
       this.lastActions = new Map(r.lastActions)
-      for (const m of r.members) this.members.set(m.id, { ...m, link: null })
+      for (const m of r.members) this.members.set(m.id, { ...m, rating: m.rating ?? 1000, ratingGames: m.ratingGames ?? 0, link: null })
       // После восстановления ждём, пока все вернутся: хост снимет паузу сам.
       this.paused = this.phase === 'playing'
       const r0 = this.game.bj
@@ -295,6 +297,8 @@ export class HostServer {
         missed: 0,
         leaving: false,
         lastChat: 0,
+        rating: msg.rating ?? 1000,
+        ratingGames: msg.ratingGames ?? 0,
       }
       this.members.set(m.id, m)
       this.trySeat(m)
@@ -316,7 +320,7 @@ export class HostServer {
       this.phase === 'lobby' || (this.phase === 'playing' && g.config.format === 'cash')
     if (!canJoin || seatedPlayers(g).length >= g.config.maxSeats) return
     try {
-      addPlayer(g, { id: m.id, name: m.name, isBot: m.isBot })
+      addPlayer(g, { id: m.id, name: m.name, isBot: m.isBot, rating: m.rating, ratingGames: m.ratingGames })
     } catch (err) {
       if (!(err instanceof EngineError)) throw err
     }
@@ -499,6 +503,8 @@ export class HostServer {
       missed: 0,
       leaving: false,
       lastChat: 0,
+      rating: 1000,
+      ratingGames: 0,
     }
     this.members.set(m.id, m)
     this.trySeat(m)
@@ -732,6 +738,13 @@ export class HostServer {
     }
     this.game.finished = true
     applyGameRatings(this.game)
+    for (const p of this.game.players) {
+      const member = this.members.get(p.id)
+      if (member) {
+        member.rating = p.rating
+        member.ratingGames = p.ratingGames
+      }
+    }
     this.phase = 'finished'
     this.turn = null
     this.clearTimers()

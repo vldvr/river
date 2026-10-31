@@ -139,7 +139,7 @@ export function seatedPlayers(g: GameState): GamePlayer[] {
 
 export function addPlayer(
   g: GameState,
-  p: { id: string; name: string; isBot?: boolean; seat?: number },
+  p: { id: string; name: string; isBot?: boolean; seat?: number; rating?: number; ratingGames?: number },
 ): GamePlayer {
   if (g.players.some((x) => x.id === p.id && x.status !== 'left')) throw new EngineError('already seated')
   const taken = new Set(seatedPlayers(g).map((x) => x.seat))
@@ -166,8 +166,8 @@ export function addPlayer(
     place: null,
     isBot: p.isBot ?? false,
     bustSeq: null,
-    rating: initialRating().rating,
-    ratingGames: initialRating().games,
+    rating: p.rating ?? initialRating().rating,
+    ratingGames: p.ratingGames ?? initialRating().games,
     ratingDelta: 0,
   }
   g.players.push(player)

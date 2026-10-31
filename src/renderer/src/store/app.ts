@@ -11,6 +11,8 @@ export interface ProfileState {
   color: string
   avatar: string | null
   token: string
+  rating: number
+  ratingGames: number
 }
 
 export type Felt = 'green' | 'blue' | 'wine'
@@ -86,6 +88,8 @@ const defaultProfile: ProfileState = {
   color: PLAYER_COLORS[0]!,
   avatar: null,
   token: '',
+  rating: 1000,
+  ratingGames: 0,
 }
 
 const defaultSettings: Settings = {

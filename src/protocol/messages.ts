@@ -41,6 +41,8 @@ export const clientMessage = z.discriminatedUnion('t', [
     color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     avatar: avatarSchema.nullable(),
     token: z.string().min(16).max(64),
+    rating: z.number().int().min(100).max(3000).optional(),
+    ratingGames: z.number().int().min(0).optional(),
   }),
   z.object({ t: z.literal('action'), handNo: z.number().int(), action: playerAction }),
   z.object({
