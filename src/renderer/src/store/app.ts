@@ -14,6 +14,7 @@ export interface ProfileState {
 }
 
 export type Felt = 'green' | 'blue' | 'wine'
+export type Accent = 'amber' | 'ice' | 'rose'
 export type Speed = 'normal' | 'fast'
 
 export interface Settings {
@@ -22,6 +23,7 @@ export interface Settings {
   speed: Speed
   fourColor: boolean
   felt: Felt
+  accent: Accent
   reduceMotion: boolean
   turnSound: boolean
 }
@@ -92,6 +94,7 @@ const defaultSettings: Settings = {
   speed: 'normal',
   fourColor: false,
   felt: 'green',
+  accent: 'amber',
   reduceMotion: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
   turnSound: true,
 }

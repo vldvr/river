@@ -8,10 +8,12 @@ import { useApp } from './store/app'
 export function App() {
   const screen = useApp((s) => s.screen)
   const felt = useApp((s) => s.settings.felt)
+  const accent = useApp((s) => s.settings.accent)
 
   useEffect(() => {
     document.documentElement.dataset.felt = felt
-  }, [felt])
+    document.documentElement.dataset.accent = accent
+  }, [felt, accent])
 
   useEffect(() => {
     if (!native) {

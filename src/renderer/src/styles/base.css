@@ -70,6 +70,22 @@
   --felt-deep: #341018;
 }
 
+[data-accent='ice'] {
+  --lamp: #78c7d8;
+  --lamp-ink: #071b20;
+  --lamp-12: rgb(120 199 216 / 0.12);
+  --lamp-24: rgb(120 199 216 / 0.24);
+  --lamp-40: rgb(120 199 216 / 0.4);
+}
+
+[data-accent='rose'] {
+  --lamp: #e58a9b;
+  --lamp-ink: #2b0b13;
+  --lamp-12: rgb(229 138 155 / 0.12);
+  --lamp-24: rgb(229 138 155 / 0.24);
+  --lamp-40: rgb(229 138 155 / 0.4);
+}
+
 *,
 *::before,
 *::after {

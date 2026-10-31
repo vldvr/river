@@ -3,12 +3,17 @@ import { SuitIcon, suitColor } from '../components/PlayingCard'
 import { Switch } from '../components/Switch'
 import { sound } from '../audio/sound'
 import { native } from '../lib/native'
-import { useApp, type Felt } from '../store/app'
+import { useApp, type Accent, type Felt } from '../store/app'
 
 const FELTS: { id: Felt; name: string; color: string }[] = [
   { id: 'green', name: 'Зелёное', color: '#2c7a5c' },
   { id: 'blue', name: 'Синее', color: '#2b5f8c' },
   { id: 'wine', name: 'Бордовое', color: '#7b2d3c' },
+]
+const ACCENTS: { id: Accent; name: string; color: string }[] = [
+  { id: 'amber', name: 'Янтарь', color: '#f0b357' },
+  { id: 'ice', name: 'Лёд', color: '#78c7d8' },
+  { id: 'rose', name: 'Роза', color: '#e58a9b' },
 ]
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose(): void }) {
@@ -76,6 +81,18 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
             <SuitIcon key={x} suit={x} size={18} color={suitColor(x, s.fourColor)} />
           ))}
           <Switch checked={s.fourColor} onChange={(v) => set({ fourColor: v })} label="Четырёхцветная колода" />
+        </div>
+      </div>
+
+      <div className="field">
+        <span className="field__label">Цвет акцента</span>
+        <div className="accent-swatches">
+          {ACCENTS.map((a) => (
+            <button key={a.id} className={`accent-swatch ${s.accent === a.id ? 'is-on' : ''}`} onClick={() => set({ accent: a.id })} aria-pressed={s.accent === a.id}>
+              <span style={{ background: a.color }} />
+              {a.name}
+            </button>
+          ))}
         </div>
       </div>
 

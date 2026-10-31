@@ -731,6 +731,37 @@
   gap: 10px;
 }
 
+.accent-swatches {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.accent-swatch {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: rgb(0 0 0 / 0.12);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.accent-swatch span {
+  width: 28px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 12px currentColor;
+}
+
+.accent-swatch:hover,
+.accent-swatch.is-on {
+  border-color: var(--lamp);
+  color: var(--text);
+}
+
 .felt-swatch {
   display: inline-flex;
   align-items: center;
