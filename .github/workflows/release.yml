@@ -8,6 +8,10 @@ on:
       tag:
         description: 'Тег, который пересобрать (например v1.1.0)'
         required: true
+      source_ref:
+        description: 'Коммит или ветка, из которой собирать (по умолчанию main)'
+        required: false
+        default: main
 
 permissions:
   contents: write
@@ -24,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
