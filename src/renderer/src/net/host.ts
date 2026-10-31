@@ -114,6 +114,7 @@ export class HostRuntime {
   /** Игра закончена по воле хоста: снапшот больше не нужен. */
   dispose(keepSnapshot = false) {
     if (this.saveTimer) clearTimeout(this.saveTimer)
+    if (!keepSnapshot) this.server.finishGame()
     if (!keepSnapshot) save(SNAPSHOT_KEY, null)
     this.relay.close()
     void this.disableDirect()

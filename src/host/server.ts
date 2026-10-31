@@ -250,6 +250,11 @@ export class HostServer {
     }
   }
 
+  /** Завершает стол перед закрытием хостового процесса. */
+  finishGame() {
+    if (this.phase === 'playing') this.finish()
+  }
+
   private onHello(link: Link, msg: Extract<ClientMessage, { t: 'hello' }>): string | null {
     if (msg.v !== PROTOCOL_VERSION) {
       link.send({ t: 'reject', reason: 'version', hostVersion: this.appVersion })
