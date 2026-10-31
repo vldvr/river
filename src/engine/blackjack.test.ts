@@ -135,6 +135,16 @@ describe('blackjack game', () => {
     expect(carried.players.every((p) => p.ratingGames === 2)).toBe(true)
   })
 
+  it('rates a single blackjack player against the dealer', () => {
+    const g = createGame({ ...DEFAULT_CONFIG, game: 'blackjack', format: 'cash', startingStack: 500 })
+    addPlayer(g, { id: 'player', name: 'Player' })
+    g.players[0]!.stack = 560
+    g.finished = true
+    applyGameRatings(g)
+    expect(g.players[0]!.rating).toBeGreaterThan(1000)
+    expect(g.players[0]!.ratingGames).toBe(1)
+  })
+
   it('random rounds with bots conserve chips', () => {
     const rand = seededRandomInt(9)
     const g = createGame({ ...DEFAULT_CONFIG, game: 'blackjack', startingStack: 500, bigBlind: 10, smallBlind: 5, reentries: 0 })

@@ -350,7 +350,7 @@ function finishTournament(g: GameState): GameEvent[] {
 
 /** Applies one rating result per player, exactly once when a game is finished. */
 export function applyGameRatings(g: GameState): void {
-    if (g.ratingApplied || g.players.length < 2) return
+    if (g.ratingApplied || g.players.length === 0) return
     const players = g.players.map((p) => ({
       player: p,
       net: p.stack - p.buyIns * g.config.startingStack,
@@ -369,7 +369,16 @@ export function applyGameRatings(g: GameState): void {
       rating: player.rating,
       games: player.ratingGames,
       rank: player.place ?? netRank.get(player.id)!,
-      score: netRange === 0 ? 0.5 : (net - minNet) / netRange,
+      score:
+        players.length === 1
+          ? net > 0
+            ? 1
+            : net < 0
+              ? 0
+              : 0.5
+          : netRange === 0
+            ? 0.5
+            : (net - minNet) / netRange,
     }))
   if (ranked.every((p) => p.rank === 1)) {
     const ordered = [...ranked].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))

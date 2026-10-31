@@ -22,7 +22,15 @@ const MAX_RATING = 3000
 /** Multi-player Elo: every player is compared with every other player. */
 export function updateRatings(players: RatingPlayer[]): RatingChange[] {
   if (players.length < 2) {
-    return players.map((p) => ({ id: p.id, rating: p.rating, delta: 0, games: p.games + 1 }))
+    return players.map((p) => {
+      const performance = p.score ?? 0.5
+      const expected = 1 / (1 + 10 ** ((1000 - p.rating) / 400))
+      const actual = performance > 0.5 ? 1 : performance < 0.5 ? 0 : 0.5
+      const margin = 1 + 0.25 * Math.min(1, Math.abs(performance - 0.5) * 2)
+      const k = p.games < 10 ? 32 : 20
+      const rating = Math.max(MIN_RATING, Math.min(MAX_RATING, p.rating + Math.round(k * margin * (actual - expected))))
+      return { id: p.id, rating, delta: rating - p.rating, games: p.games + 1 }
+    })
   }
 
   const raw = players.map((player) => {
