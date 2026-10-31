@@ -29,6 +29,8 @@ export interface PlayerView {
   buyIns: number
   place: number | null
   hasAvatar: boolean
+  rating: number
+  ratingGames: number
 }
 
 export interface SeatInHand {
@@ -113,7 +115,7 @@ export interface TableView {
   /** Следующая раздача начнётся через… (мс), если ждём. */
   nextHandInMs: number | null
   /** Итоги: места турнира или плюс/минус в кэше, включая ушедших. */
-  results: { id: string; name: string; color: string; place: number | null; net: number; buyIns: number }[]
+  results: { id: string; name: string; color: string; place: number | null; net: number; buyIns: number; rating: number; ratingDelta: number }[]
   you: {
     id: string
     /** Видит чужие карты как зритель. */

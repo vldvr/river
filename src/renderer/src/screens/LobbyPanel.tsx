@@ -59,6 +59,9 @@ export function LobbyPanel({ view }: { view: TableView }) {
             <li key={p.id} className="lobby__player">
               <Avatar name={p.name} color={p.color} src={avatars[p.id]} size={28} dim={!p.connected} />
               <span className="lobby__pname">{p.name}</span>
+              <span className="lobby__rating num" title={`Эло: ${p.rating}, партий: ${p.ratingGames}`}>
+                Эло {p.rating}
+              </span>
               {p.isHost && <Crown size={14} weight="fill" className="lobby__crown" aria-label="хост" />}
               {p.isBot && <Robot size={14} className="lobby__bot" aria-label="бот" />}
               {!p.isBot && !p.connected && <span className="lobby__off">нет связи</span>}

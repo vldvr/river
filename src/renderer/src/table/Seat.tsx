@@ -81,7 +81,10 @@ export const Seat = memo(function Seat({ place, player, avatar, seat, acting, tu
       </div>
 
       <div className="seat__plate">
-        <span className="seat__name">{player.name}</span>
+        <span className="seat__name" title={`Эло: ${player.rating}, партий: ${player.ratingGames}`}>
+          {player.name}
+          <span className="seat__rating num">Эло {player.rating}</span>
+        </span>
         <span className="seat__stack num">{status ?? (seat?.allIn ? 'Олл-ин' : chips(stack))}</span>
         {player.buyIns > 1 && <span className="seat__reentry">{reentryLabel(player.buyIns - 1)}</span>}
       </div>

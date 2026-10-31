@@ -1,6 +1,7 @@
 import {
   addPlayer,
   applyAction,
+  applyGameRatings,
   blindsForLevel,
   bjAllBet,
   bjBegin,
@@ -166,7 +167,13 @@ export class HostServer {
     if (r) {
       // Сохранение могло остаться от старой версии: недостающее берём по умолчанию.
       this.game = { ...r.game, bustCounter: r.game.bustCounter ?? 0, config: { ...DEFAULT_CONFIG, ...r.game.config } }
-      for (const p of this.game.players) p.bustSeq ??= null
+      this.game.ratingApplied ??= false
+      for (const p of this.game.players) {
+        p.bustSeq ??= null
+        p.rating ??= 1000
+        p.ratingGames ??= 0
+        p.ratingDelta ??= 0
+      }
       this.phase = r.phase
       this.seq = r.seq
       this.kicked = new Set(r.kicked)
@@ -421,6 +428,10 @@ export class HostServer {
   }
 
   private onLeave(m: Member) {
+    if (m.isHost && this.phase === 'playing') {
+      this.finish()
+      return
+    }
     m.leaving = true
     const r = this.game.bj
     if (this.isBj && this.phase === 'playing' && r) {
@@ -498,6 +509,7 @@ export class HostServer {
 
   private onAgain() {
     if (this.phase !== 'finished') return
+    const ratings = new Map(this.game.players.map((p) => [p.id, { rating: p.rating, ratingGames: p.ratingGames }]))
     const config = this.game.config
     this.game = createGame(config)
     this.phase = 'lobby'
@@ -505,6 +517,9 @@ export class HostServer {
     for (const m of this.members.values()) {
       m.missed = 0
       this.trySeat(m)
+      const p = findPlayer(this.game, m.id)
+      const rating = ratings.get(m.id)
+      if (p && rating) Object.assign(p, rating)
     }
     this.broadcastView()
     this.save()
@@ -695,6 +710,28 @@ export class HostServer {
   }
 
   private finish() {
+    this.clearTimers()
+    if (this.nextHandTimer !== null) this.sched.clearTimeout(this.nextHandTimer)
+    this.nextHandTimer = null
+    this.nextHandAt = null
+    if (this.isBj) {
+      const r = this.game.bj
+      if (r?.phase === 'betting') bjCloseBets(this.game)
+      while (r?.phase === 'playing' && r.toAct) {
+        const p = r.seats.find((s) => s.seat === r.toAct!.seat)
+        if (!p) break
+        bjApply(this.game, p.id, { type: 'stand' })
+      }
+    } else {
+      const h = this.game.hand
+      while (h && !h.done && h.toAct !== null) {
+        const p = h.players.find((x) => x.seat === h.toAct)
+        if (!p) break
+        applyAction(this.game, p.id, { type: 'fold' })
+      }
+    }
+    this.game.finished = true
+    applyGameRatings(this.game)
     this.phase = 'finished'
     this.turn = null
     this.clearTimers()
@@ -965,6 +1002,8 @@ export class HostServer {
         buyIns: gp?.buyIns ?? 0,
         place: gp?.place ?? null,
         hasAvatar: x.avatar !== null,
+        rating: gp?.rating ?? 1000,
+        ratingGames: gp?.ratingGames ?? 0,
       }
     })
     players.sort((a, b) => (a.seat ?? 99) - (b.seat ?? 99))
@@ -1043,6 +1082,8 @@ export class HostServer {
         place: p.place,
         net: p.stack - p.buyIns * g.config.startingStack,
         buyIns: p.buyIns,
+        rating: p.rating,
+        ratingDelta: p.ratingDelta,
       })),
       you: {
         id: m.id,

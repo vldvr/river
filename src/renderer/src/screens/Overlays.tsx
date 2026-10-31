@@ -39,6 +39,9 @@ export function Results({ view }: { view: TableView }) {
             <span className="results__dot" style={{ background: r.color }} />
             <span className="results__name">{r.name}</span>
             {r.buyIns > 1 && <span className="results__buyins">входов: {r.buyIns}</span>}
+            <span className={`results__rating num ${r.ratingDelta > 0 ? 'is-plus' : r.ratingDelta < 0 ? 'is-minus' : ''}`}>
+              {r.rating} ({r.ratingDelta >= 0 ? '+' : ''}{r.ratingDelta})
+            </span>
             <span className={`results__net num ${r.net > 0 ? 'is-plus' : r.net < 0 ? 'is-minus' : ''}`}>
               {tournament ? '' : signedChips(r.net)}
             </span>

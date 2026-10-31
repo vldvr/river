@@ -95,6 +95,26 @@ function secretCards(server: HostServer, viewerId: string): string[] {
 }
 
 describe('HostServer', () => {
+  it('finishes a blackjack table and settles the active round before rating players', () => {
+    const H = harness({ game: 'blackjack', format: 'cash', startingStack: 500, bigBlind: 10, smallBlind: 5 }, 4)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    const guest = H.connect('Гость', 'token-guest-00000000')
+    host.t.send({ t: 'start' })
+    H.flush()
+    H.tick(1500)
+    expect(host.view?.bj?.phase).toBe('betting')
+    host.t.send({ t: 'bj', round: host.view!.bj!.roundNo, action: { type: 'bet', amount: 10 } })
+    guest.t.send({ t: 'bj', round: guest.view!.bj!.roundNo, action: { type: 'bet', amount: 10 } })
+    H.flush()
+    host.t.send({ t: 'leave' })
+    H.flush()
+    expect(H.server.state.phase).toBe('finished')
+    expect(host.view!.results).toHaveLength(2)
+    expect(H.server.state.game.players.every((p) => p.ratingGames === 1)).toBe(true)
+    expect(host.view!.results.every((r) => r.ratingDelta !== 0 || r.rating === 1000)).toBe(true)
+    expect(guest.view!.players.every((p) => typeof p.rating === 'number')).toBe(true)
+  })
+
   it('plays a full tournament with humans and bots, never leaking hole cards', () => {
     const H = harness({ startingStack: 400, levelMinutes: 2 }, 42)
     const host = H.connect('Хост', 'host-token-0000000000')

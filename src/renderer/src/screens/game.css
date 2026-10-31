@@ -264,9 +264,16 @@
 .lobby__pname {
   font-size: 14px;
   font-weight: 500;
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.lobby__rating {
+  flex: none;
+  margin-left: auto;
 }
 
 .lobby__crown {
@@ -488,6 +495,33 @@
 .results__net {
   margin-left: auto;
   font-weight: 600;
+}
+
+.results__rating {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.results__rating.is-plus {
+  color: #9fd4a5;
+}
+
+.results__rating.is-minus {
+  color: var(--error);
+}
+
+.lobby__rating,
+.seat__rating {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.seat__name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .results__net.is-plus {

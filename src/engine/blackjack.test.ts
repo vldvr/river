@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { seededRandomInt, type Card } from './cards.ts'
 import { bjAct, bjBotAction, bjDeal, bjLegal, bjTotal, isBlackjack, newRound } from './blackjack.ts'
 import { bjAllBet, bjApply, bjBegin, bjBet, bjChips, bjCloseBets, bjLegalFor } from './bjgame.ts'
-import { addPlayer, createGame, DEFAULT_CONFIG } from './game.ts'
+import { addPlayer, applyGameRatings, createGame, DEFAULT_CONFIG } from './game.ts'
+import { updateRatings } from './rating.ts'
 
 /** Раунд с заданным шузом: карты раздаются по порядку (игроки, дилер, игроки, дилер, дальше добор). */
 function round(bets: number[], shoe: Card[]) {
@@ -84,6 +85,56 @@ describe('blackjack rules', () => {
 })
 
 describe('blackjack game', () => {
+  it('updates multi-player Elo with ties and keeps the total bounded', () => {
+    const changes = updateRatings([
+      { id: 'winner', rating: 1000, games: 0, rank: 1, score: 1 },
+      { id: 'draw', rating: 1000, games: 0, rank: 2, score: 0 },
+      { id: 'loser', rating: 1000, games: 0, rank: 3, score: -1 },
+    ])
+    expect(changes[0]!.rating).toBeGreaterThan(1000)
+    expect(changes[2]!.rating).toBeLessThan(1000)
+    expect(changes.every((x) => x.games === 1)).toBe(true)
+    expect(changes.reduce((sum, x) => sum + x.delta, 0)).toBe(0)
+  })
+
+  it('updates cash-style results by performance when places are absent', () => {
+    const g = createGame({ ...DEFAULT_CONFIG, format: 'cash', startingStack: 100 })
+    addPlayer(g, { id: 'winner', name: 'Winner' })
+    addPlayer(g, { id: 'loser', name: 'Loser' })
+    g.players[0]!.stack = 160
+    g.players[1]!.stack = 40
+    g.finished = true
+    const before = g.players.map((p) => p.rating)
+    applyGameRatings(g)
+    expect(g.players[0]!.rating).toBeGreaterThan(before[0]!)
+    expect(g.players[1]!.rating).toBeLessThan(before[1]!)
+    expect(g.ratingApplied).toBe(true)
+  })
+
+  it('can apply ratings to a second game after carrying player ratings forward', () => {
+    const g = createGame({ ...DEFAULT_CONFIG, format: 'cash', startingStack: 100 })
+    addPlayer(g, { id: 'a', name: 'A' })
+    addPlayer(g, { id: 'b', name: 'B' })
+    g.players[0]!.stack = 150
+    g.players[1]!.stack = 50
+    g.finished = true
+    applyGameRatings(g)
+    const first = g.players[0]!.ratingGames
+    const carried = createGame({ ...DEFAULT_CONFIG, format: 'cash', startingStack: 100 })
+    addPlayer(carried, { id: 'a', name: 'A' })
+    addPlayer(carried, { id: 'b', name: 'B' })
+    carried.players[0]!.rating = g.players[0]!.rating
+    carried.players[0]!.ratingGames = g.players[0]!.ratingGames
+    carried.players[1]!.rating = g.players[1]!.rating
+    carried.players[1]!.ratingGames = g.players[1]!.ratingGames
+    carried.players[0]!.stack = 40
+    carried.players[1]!.stack = 160
+    carried.finished = true
+    applyGameRatings(carried)
+    expect(first).toBe(1)
+    expect(carried.players.every((p) => p.ratingGames === 2)).toBe(true)
+  })
+
   it('random rounds with bots conserve chips', () => {
     const rand = seededRandomInt(9)
     const g = createGame({ ...DEFAULT_CONFIG, game: 'blackjack', startingStack: 500, bigBlind: 10, smallBlind: 5, reentries: 0 })
