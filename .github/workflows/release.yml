@@ -32,14 +32,23 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      # Релиз создаём заранее: иначе electron-builder грузит файлы параллельно
-      # и может завести на одном теге два релиза. Повторный запуск берёт уже созданный черновик.
+      - name: Проверить соответствие версии тегу
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${TAG#v}"
+          test "$PKG_VERSION" = "$TAG_VERSION" || {
+            echo "package.json version ($PKG_VERSION) does not match tag ($TAG)"
+            exit 1
+          }
+      # Релиз создаём заранее, а публикацию делаем отдельным gh upload:
+      # так повторный запуск работает и для уже опубликованного релиза.
       - name: Черновик релиза
         run: gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "Ривер $TAG" --notes-file .github/release-notes.md
-      - name: Собрать установщик и portable, выложить в черновик
-        run: npx electron-builder --win --x64 --publish always
-        env:
-          # Черновик независимо от конфига на теге.
-          EP_DRAFT: 'true'
+      - name: Собрать установщик и portable
+        run: |
+          rm -rf release
+          npx electron-builder --win --x64 --publish never
+      - name: Загрузить артефакты в релиз
+        run: gh release upload "$TAG" release/*.exe release/*.blockmap release/latest.yml --clobber
       - name: Опубликовать релиз
         run: gh release edit "$TAG" --draft=false --latest
