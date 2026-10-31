@@ -6,11 +6,13 @@ HOST=${1:-russia}
 DOMAIN=river.wkiseven.me
 cd "$(dirname "$0")"
 
-tar -czf - package.json relay.mjs Dockerfile docker-compose.yml nginx.conf | ssh "$HOST" "mkdir -p /root/river-relay && tar -xzf - -C /root/river-relay"
+tar -czf - package.json relay.mjs accounts.mjs rating.mjs Dockerfile docker-compose.yml nginx.conf | ssh "$HOST" "mkdir -p /root/river-relay && tar -xzf - -C /root/river-relay"
 
 ssh "$HOST" DOMAIN="$DOMAIN" bash -s <<'REMOTE'
 set -euo pipefail
 cd /root/river-relay
+# Папка базы рейтинга: в контейнере пишет пользователь node (uid 1000).
+mkdir -p data && chown 1000:1000 data
 docker compose up -d --build
 for i in $(seq 1 20); do curl -fs 127.0.0.1:8095/health && break; sleep 1; done
 echo

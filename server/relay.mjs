@@ -4,8 +4,11 @@
 // Хост:  /ws?role=host&code=123456&secret=<hex>   ← {relay:'hosting'}, {t:'open'|'msg'|'close', conn, data?}
 //                                                   → {t:'send', conn, data} | {t:'close', conn}
 // Гость: /ws?role=guest&code=123456               ← {relay:'joined'}, дальше кадры хоста как есть
+//
+// Плюс рейтинг игроков: /api/*, см. accounts.mjs.
 import { createServer } from 'node:http'
 import { WebSocketServer } from 'ws'
+import { ApiError, openAccounts } from './accounts.mjs'
 
 export const LIMITS = {
   rooms: 500,
@@ -19,6 +22,9 @@ export const LIMITS = {
   missesPerWindow: 12,
   missWindowMs: 60_000,
   missBlockMs: 60_000,
+  /** Запросов к /api за минуту с одного адреса. */
+  apiPerMinute: 60,
+  apiBody: 16 * 1024,
 }
 
 const CLOSE = {
@@ -30,11 +36,65 @@ const CLOSE = {
   tooFast: 4429,
 }
 
-export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, trustProxy = false } = {}) {
+export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, trustProxy = false, db = ':memory:', now } = {}) {
   /** @type {Map<string, {secret: string, host: import('ws').WebSocket, guests: Map<number, import('ws').WebSocket>, nextId: number}>} */
   const rooms = new Map()
+  const accounts = openAccounts(db, now ? { now } : undefined)
+  const ownsRoom = (code, secret) => typeof secret === 'string' && rooms.get(code)?.secret === secret
+  const apiHits = new Map()
+
+  async function api(req, res, route) {
+    const headers = { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' }
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, { ...headers, 'access-control-allow-methods': 'POST' })
+      return res.end()
+    }
+    const reply = (status, body) => {
+      res.writeHead(status, headers)
+      res.end(JSON.stringify(body))
+    }
+    if (req.method !== 'POST') return reply(405, { error: 'POST only' })
+    // Код восстановления не перебрать: запросов с адреса за минуту немного.
+    const ip = ipOf(req)
+    if (ip) {
+      const t = Date.now()
+      const h = apiHits.get(ip) ?? { count: 0, since: t }
+      if (t - h.since > 60_000) Object.assign(h, { count: 0, since: t })
+      h.count += 1
+      apiHits.set(ip, h)
+      if (h.count > LIMITS.apiPerMinute) return reply(429, { error: 'slow down' })
+    }
+    let raw = ''
+    for await (const chunk of req) {
+      raw += chunk
+      if (raw.length > LIMITS.apiBody) return reply(413, { error: 'too big' })
+    }
+    let body
+    try {
+      body = JSON.parse(raw)
+      if (!body || typeof body !== 'object') throw new Error()
+    } catch {
+      return reply(400, { error: 'bad json' })
+    }
+    try {
+      if (route === 'me') return reply(200, accounts.me(body))
+      if (route === 'ticket') return reply(200, accounts.ticket(body))
+      if (route === 'seat') return reply(200, accounts.seat(body))
+      if (route === 'game') return reply(200, accounts.report(body, ownsRoom))
+      return reply(404, { error: 'not found' })
+    } catch (err) {
+      if (err instanceof ApiError) return reply(err.status, { error: err.message })
+      log(`api ${route} failed: ${err?.stack ?? err}`)
+      return reply(500, { error: 'server error' })
+    }
+  }
 
   const http = createServer((req, res) => {
+    const m = /^\/api\/([a-z]+)$/.exec(req.url ?? '')
+    if (m) {
+      api(req, res, m[1]).catch(() => res.destroy())
+      return
+    }
     if (req.url === '/health') {
       let guests = 0
       for (const r of rooms.values()) guests += r.guests.size
@@ -197,6 +257,7 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, 
   const heartbeat = setInterval(() => {
     const now = Date.now()
     for (const [ip, m] of misses) if (m.until < now && now - m.since > LIMITS.missWindowMs) misses.delete(ip)
+    for (const [ip, h] of apiHits) if (now - h.since > 60_000) apiHits.delete(ip)
     for (const ws of wss.clients) {
       if (!ws.isAlive) {
         ws.terminate()
@@ -206,15 +267,25 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, 
       ws.ping()
     }
   }, LIMITS.pingMs)
+  const settler = setInterval(() => {
+    try {
+      accounts.settleStale()
+    } catch (err) {
+      log(`settle failed: ${err}`)
+    }
+  }, 60_000)
 
   return new Promise((resolve) => {
     http.listen(port, host, () => {
       resolve({
         port: http.address().port,
         rooms,
+        accounts,
         close: () =>
           new Promise((r) => {
             clearInterval(heartbeat)
+            clearInterval(settler)
+            accounts.close()
             for (const ws of wss.clients) ws.terminate()
             wss.close()
             http.close(() => r())
@@ -226,7 +297,7 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, 
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT ?? 8080)
-  const relay = await createRelay({ port, trustProxy: process.env.TRUST_PROXY === '1' })
+  const relay = await createRelay({ port, trustProxy: process.env.TRUST_PROXY === '1', db: process.env.DB_FILE ?? 'river.db' })
   console.log(`river relay on :${relay.port}`)
   const stop = async () => {
     await relay.close()

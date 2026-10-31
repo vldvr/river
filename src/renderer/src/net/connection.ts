@@ -12,6 +12,7 @@ import { useScene } from '../store/scene'
 import { HostRuntime, type DirectInfo, type SavedGame } from './host'
 import { CodeTakenError, connectByCode, NotFoundError, RoomFullError, type RelayStatus } from './relay'
 import { connectByAddress, parseAddress } from './ws'
+import { hostRatings, refreshRating, ticketFor } from './rating'
 
 type Target = { kind: 'code'; code: string } | { kind: 'ip'; url: string; label: string }
 
@@ -31,18 +32,14 @@ async function profileFor(room: string): Promise<Profile> {
     avatar: p.avatar,
     token: await roomToken(p.token, room),
     appVersion: useApp.getState().appVersion,
-    rating: p.rating,
-    ratingGames: p.ratingGames,
   }
 }
 
-function syncProfileRating(view: import('../../../protocol/index.ts').TableView) {
-  const { you, profile, setProfile } = useApp.getState()
-  const player = view.players.find((p) => p.id === you)
-  if (!player || player.ratingGames < profile.ratingGames) return
-  if (player.rating !== profile.rating || player.ratingGames !== profile.ratingGames) {
-    setProfile({ rating: player.rating, ratingGames: player.ratingGames })
-  }
+/** Хосту билет рейтинга: по нему он узнаёт наш аккаунт. Без сети играем вне зачёта. */
+async function sendAccount(code: string) {
+  const mine = session
+  const ticket = await ticketFor(code).catch(() => null)
+  if (ticket && session === mine) session?.send({ t: 'account', ticket })
 }
 
 const REJECTS: Record<RejectReason, string> = {
@@ -67,17 +64,15 @@ function handlers(): SessionHandlers {
     onWelcome(you, view, avatars) {
       reconnecting = false
       set({ you, view, avatars, conn: 'online', screen: 'game', code: view.code, homeError: null })
-      syncProfileRating(view)
+      void sendAccount(view.code)
       resetScene(view)
     },
     onView(view) {
       set({ view })
-      syncProfileRating(view)
       viewUpdate(view)
     },
     onEvents(_seq, events, view) {
       set({ view })
-      syncProfileRating(view)
       enqueue(events, view)
     },
     onAvatar(id, avatar) {
@@ -120,6 +115,9 @@ function backHome(error: string | null) {
   set({ screen: 'home', role: null, code: null, conn: 'idle', relay: 'connecting', you: null, view: null, shown: null, chat: [], unread: 0, log: [], homeError: error })
   useScene.setState({ handNo: 0, seats: {}, board: [], flights: [], live: false, toAct: null, banner: null })
   native?.flash(false)
+  // Итог партии сервер мог досчитать только что: рейтинг подтянем сразу и чуть позже.
+  void refreshRating()
+  setTimeout(() => void refreshRating(), 4000)
 }
 
 async function open(t: Target): Promise<void> {
@@ -163,7 +161,8 @@ export async function createGame() {
   const config: GameConfig | undefined = saved ? { ...DEFAULT_CONFIG, ...pickConfig(saved) } : undefined
   const me = await profileFor(code)
   set({ role: 'host', code, conn: 'connecting', homeError: null })
-  runtime = new HostRuntime({ code, hostToken: me.token, relaySecret: randomHex(32), appVersion: useApp.getState().appVersion, config, onRelay })
+  const relaySecret = randomHex(32)
+  runtime = new HostRuntime({ code, hostToken: me.token, relaySecret, appVersion: useApp.getState().appVersion, config, onRelay, ratings: hostRatings(code, relaySecret) })
   session = new GameSession(me, handlers())
   target = null
   session.attach(runtime.ownTransport())
@@ -188,6 +187,7 @@ export async function resumeGame() {
     appVersion: useApp.getState().appVersion,
     restore: snap,
     onRelay,
+    ratings: hostRatings(snap.code, snap.relaySecret),
   })
   session = new GameSession({ ...me, token: snap.hostToken }, handlers())
   target = null

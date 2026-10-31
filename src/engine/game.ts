@@ -12,7 +12,6 @@ import {
 } from './hand.ts'
 
 import type { BjRound } from './blackjack.ts'
-import { initialRating, updateRatings } from './rating.ts'
 
 export type Format = 'tournament' | 'cash'
 export type GameKind = 'holdem' | 'blackjack'
@@ -77,8 +76,6 @@ export interface GameState {
   startedAt: number | null
   hand: HandState | null
   finished: boolean
-  /** Guards against applying one table result more than once. */
-  ratingApplied: boolean
   bustCounter: number
   /** Блэкджек: текущий раунд и шуз. */
   bj: BjRound | null
@@ -116,7 +113,6 @@ export function createGame(config: GameConfig): GameState {
     startedAt: null,
     hand: null,
     finished: false,
-    ratingApplied: false,
     bustCounter: 0,
     bj: null,
     shoe: [],
@@ -166,8 +162,8 @@ export function addPlayer(
     place: null,
     isBot: p.isBot ?? false,
     bustSeq: null,
-    rating: p.rating ?? initialRating().rating,
-    ratingGames: p.ratingGames ?? initialRating().games,
+    rating: p.rating ?? 1000,
+    ratingGames: p.ratingGames ?? 0,
     ratingDelta: 0,
   }
   g.players.push(player)
@@ -336,7 +332,6 @@ function finishTournament(g: GameState): GameEvent[] {
   const pending = g.players.filter((p) => p.place === null).sort((a, b) => (b.bustSeq ?? 0) - (a.bustSeq ?? 0))
   pending.forEach((p, i) => (p.place = free[i] ?? g.players.length))
   g.finished = true
-  applyGameRatings(g)
   return [
     {
       t: 'finish',
@@ -346,56 +341,6 @@ function finishTournament(g: GameState): GameEvent[] {
         .map((p) => ({ id: p.id, place: p.place! })),
     },
   ]
-}
-
-/** Applies one rating result per player, exactly once when a game is finished. */
-export function applyGameRatings(g: GameState): void {
-    if (g.ratingApplied || g.players.length === 0) return
-    const players = g.players.map((p) => ({
-      player: p,
-      net: p.stack - p.buyIns * g.config.startingStack,
-    }))
-    const byNet = [...players].sort((a, b) => b.net - a.net)
-    const netRank = new Map<string, number>()
-    for (let i = 0; i < byNet.length; i++) {
-      if (i === 0 || byNet[i]!.net !== byNet[i - 1]!.net) netRank.set(byNet[i]!.player.id, i + 1)
-      else netRank.set(byNet[i]!.player.id, netRank.get(byNet[i - 1]!.player.id)!)
-    }
-    const minNet = byNet.at(-1)!.net
-    const maxNet = byNet[0]!.net
-    const netRange = maxNet - minNet
-    const ranked = players.map(({ player, net }) => ({
-      id: player.id,
-      rating: player.rating,
-      games: player.ratingGames,
-      rank: player.place ?? netRank.get(player.id)!,
-      score:
-        players.length === 1
-          ? net > 0
-            ? 1
-            : net < 0
-              ? 0
-              : 0.5
-          : netRange === 0
-            ? 0.5
-            : (net - minNet) / netRange,
-    }))
-  if (ranked.every((p) => p.rank === 1)) {
-    const ordered = [...ranked].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    for (let i = 0; i < ordered.length; i++) ordered[i]!.rank = i + 1
-    for (let i = 1; i < ordered.length; i++) {
-      if (ordered[i]!.score === ordered[i - 1]!.score) ordered[i]!.rank = ordered[i - 1]!.rank
-    }
-  }
-  for (const change of updateRatings(ranked)) {
-    const p = g.players.find((x) => x.id === change.id)
-    if (p) {
-      p.rating = change.rating
-      p.ratingGames = change.games
-      p.ratingDelta = change.delta
-    }
-    g.ratingApplied = true
-  }
 }
 
 /** Повторный вход: в кэше докупка, в турнире новый стек, пока турнир не кончился. */

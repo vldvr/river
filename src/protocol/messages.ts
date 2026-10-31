@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { TableView, ViewEvent } from './view.ts'
 
-export const PROTOCOL_VERSION = 2
+export const PROTOCOL_VERSION = 3
 export const APP_ID = `river-holdem-v${PROTOCOL_VERSION}`
 
 /** Аватар: webp/png/jpeg data-URL, до ~48 КБ. */
@@ -41,9 +41,9 @@ export const clientMessage = z.discriminatedUnion('t', [
     color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     avatar: avatarSchema.nullable(),
     token: z.string().min(16).max(64),
-    rating: z.number().int().min(100).max(3000).optional(),
-    ratingGames: z.number().int().min(0).optional(),
   }),
+  /** Билет сервера рейтинга: хост узнаёт по нему аккаунт игрока и его Эло. */
+  z.object({ t: z.literal('account'), ticket: z.string().min(10).max(400) }),
   z.object({ t: z.literal('action'), handNo: z.number().int(), action: playerAction }),
   z.object({
     t: z.literal('bj'),

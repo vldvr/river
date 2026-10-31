@@ -1,7 +1,6 @@
 import {
   addPlayer,
   applyAction,
-  applyGameRatings,
   blindsForLevel,
   bjAllBet,
   bjBegin,
@@ -91,6 +90,32 @@ interface Member {
 type LastAction = { kind: ActionKind | 'post' | 'allin'; amount: number }
 type HostEvent = GameEvent | ViewEvent | BjGameEvent
 
+/**
+ * Сервер рейтинга. Эло считает он, хост только присылает итог партии с билетами игроков.
+ * Без сервиса (тесты, нет сети) партии просто не идут в зачёт.
+ */
+export interface RatingService {
+  seat(ticket: string): Promise<{ account: string; rating: number; games: number } | null>
+  report(r: RatingReport): Promise<RatingReply | null>
+}
+export interface RatedGame {
+  id: string
+  key: string
+}
+export interface RatingReport {
+  game: RatedGame | null
+  kind: 'tournament' | 'cash'
+  hands: number
+  final: boolean
+  players: { ticket: string; place: number | null; net: number }[]
+}
+export interface RatingReply {
+  game: RatedGame
+  done: boolean
+  changes?: { id: string; rating: number; delta: number; games: number }[]
+}
+type Account = { account: string; ticket: string }
+
 export interface HostSnapshot {
   v: 1
   code: string
@@ -105,6 +130,8 @@ export interface HostSnapshot {
   showdown: ShowdownHand[] | null
   winners: number[]
   lastActions: [number, LastAction][]
+  accounts?: [string, Account][]
+  rated?: RatedGame | null
   savedAt: number
 }
 
@@ -117,6 +144,7 @@ export interface HostOptions {
   rand?: RandomInt
   onSnapshot?: (s: HostSnapshot) => void
   restore?: HostSnapshot
+  ratings?: RatingService
 }
 
 const BOT_COLORS = ['#7aa6c2', '#c27a7a', '#8fb57a', '#b59a6a', '#9a86c4', '#6fb3a8', '#c49a6c', '#a3a3a3', '#c47ab0']
@@ -133,6 +161,12 @@ export class HostServer {
   private readonly sched: Scheduler
   private readonly rand: RandomInt
   private readonly onSnapshot?: (s: HostSnapshot) => void
+  private readonly ratings?: RatingService
+  /** Аккаунты игроков стола (по id игрока): остаются и после ухода, чтобы итог дошёл до сервера. */
+  private accounts = new Map<string, Account>()
+  /** Партия на сервере рейтинга, пока идёт. */
+  private rated: RatedGame | null = null
+  private ratingQueue: Promise<void> = Promise.resolve()
 
   private members = new Map<string, Member>()
   private game: GameState
@@ -163,13 +197,13 @@ export class HostServer {
     this.sched = opts.scheduler ?? realScheduler
     this.rand = opts.rand ?? cryptoRandomInt
     this.onSnapshot = opts.onSnapshot
+    this.ratings = opts.ratings
     this.game = createGame(opts.config ?? DEFAULT_CONFIG)
 
     const r = opts.restore
     if (r) {
       // Сохранение могло остаться от старой версии: недостающее берём по умолчанию.
       this.game = { ...r.game, bustCounter: r.game.bustCounter ?? 0, config: { ...DEFAULT_CONFIG, ...r.game.config } }
-      this.game.ratingApplied ??= false
       for (const p of this.game.players) {
         p.bustSeq ??= null
         p.rating ??= 1000
@@ -184,6 +218,8 @@ export class HostServer {
       this.showdown = r.showdown
       this.winners = r.winners
       this.lastActions = new Map(r.lastActions)
+      this.accounts = new Map(r.accounts ?? [])
+      this.rated = r.rated ?? null
       for (const m of r.members) this.members.set(m.id, { ...m, rating: m.rating ?? 1000, ratingGames: m.ratingGames ?? 0, link: null })
       // После восстановления ждём, пока все вернутся: хост снимет паузу сам.
       this.paused = this.phase === 'playing'
@@ -302,8 +338,8 @@ export class HostServer {
         missed: 0,
         leaving: false,
         lastChat: 0,
-        rating: msg.rating ?? 1000,
-        ratingGames: msg.ratingGames ?? 0,
+        rating: 1000,
+        ratingGames: 0,
       }
       this.members.set(m.id, m)
       this.trySeat(m)
@@ -380,6 +416,8 @@ export class HostServer {
         return this.onShow(m)
       case 'leave':
         return this.onLeave(m)
+      case 'account':
+        return this.onAccount(m, msg.ticket)
     }
 
     if (!m.isHost) return
@@ -409,6 +447,59 @@ export class HostServer {
       case 'again':
         return this.onAgain()
     }
+  }
+
+  // ───────────── Рейтинг ─────────────
+
+  private onAccount(m: Member, ticket: string) {
+    const svc = this.ratings
+    if (!svc || m.isBot || this.accounts.get(m.id)?.ticket === ticket) return
+    svc
+      .seat(ticket)
+      .then((r) => {
+        if (!r || this.disposed || this.members.get(m.id) !== m) return
+        // Один аккаунт за столом один раз: второе окно того же игрока не удвоит его в итоге.
+        for (const [id, a] of this.accounts) if (a.account === r.account && id !== m.id && this.members.has(id)) return
+        this.accounts.set(m.id, { account: r.account, ticket })
+        m.rating = r.rating
+        m.ratingGames = r.games
+        const gp = findPlayer(this.game, m.id)
+        if (gp && this.phase !== 'finished') Object.assign(gp, { rating: r.rating, ratingGames: r.games })
+        this.broadcastView()
+        this.save()
+      })
+      .catch(() => {})
+  }
+
+  /** Итог партии на сервер рейтинга: после каждой раздачи и в конце. Блэкджек не в зачёт. */
+  private reportRating(final: boolean) {
+    const svc = this.ratings
+    const g = this.game
+    if (!svc || this.isBj) return
+    const players = g.players.flatMap((p) => {
+      const a = this.accounts.get(p.id)
+      return a ? [{ ticket: a.ticket, place: p.place, net: p.stack - p.buyIns * g.config.startingStack }] : []
+    })
+    if (!this.rated && players.length < 2) return
+    const kind = g.config.format
+    const hands = g.handNo
+    this.ratingQueue = this.ratingQueue.then(async () => {
+      const reply = await svc.report({ game: this.rated, kind, hands, final, players }).catch(() => null)
+      if (!reply) return
+      // Сервер уже закрыл партию (хост долго молчал): дальше пойдёт как новая.
+      this.rated = final || reply.done ? null : reply.game
+      for (const c of reply.changes ?? []) {
+        for (const p of g.players) {
+          if (this.accounts.get(p.id)?.account !== c.id) continue
+          Object.assign(p, { rating: c.rating, ratingGames: c.games, ratingDelta: c.delta })
+          const m = this.members.get(p.id)
+          if (m) Object.assign(m, { rating: c.rating, ratingGames: c.games })
+        }
+      }
+      if (this.disposed) return
+      if (reply.changes?.length) this.broadcastView()
+      this.save()
+    })
   }
 
   private onAction(m: Member, handNo: number, action: PlayerAction) {
@@ -742,14 +833,7 @@ export class HostServer {
       }
     }
     this.game.finished = true
-    applyGameRatings(this.game)
-    for (const p of this.game.players) {
-      const member = this.members.get(p.id)
-      if (member) {
-        member.rating = p.rating
-        member.ratingGames = p.ratingGames
-      }
-    }
+    this.reportRating(true)
     this.phase = 'finished'
     this.turn = null
     this.clearTimers()
@@ -761,6 +845,7 @@ export class HostServer {
     for (const m of [...this.members.values()]) if (m.leaving) this.removeMember(m)
     if (this.phase !== 'playing') return
     if (this.game.finished) return this.finish()
+    this.reportRating(false)
     if (this.paused) return this.broadcastView()
     if (this.isBj) {
       if (!bjCanStart(this.game)) return this.broadcastView()
@@ -1131,6 +1216,8 @@ export class HostServer {
       showdown: this.showdown,
       winners: this.winners,
       lastActions: [...this.lastActions],
+      accounts: [...this.accounts],
+      rated: this.rated,
       savedAt: this.sched.now(),
     }
   }

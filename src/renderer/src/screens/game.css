@@ -689,6 +689,54 @@
   align-items: center;
 }
 
+.rating-box {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.rating-box p {
+  margin: 0;
+}
+
+.rating-box__score {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 20px;
+}
+
+.rating-box__games {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.rating-box__code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border-radius: var(--radius-s);
+  background: var(--room-3);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  user-select: text;
+}
+
+.rating-box__actions,
+.rating-box__enter {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.rating-box__enter .input {
+  flex: 1;
+  min-width: 0;
+}
+
 .colors {
   display: flex;
   gap: 8px;

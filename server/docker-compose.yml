@@ -8,6 +8,9 @@ services:
     environment:
       # Порт открыт только на localhost, снаружи ходят через nginx: ему можно верить в X-Real-IP.
       TRUST_PROXY: '1'
+    volumes:
+      # Рейтинги игроков. Бэкап: /root/river-relay/data/river.db
+      - ./data:/app/data
     mem_limit: 128m
     logging:
       options:

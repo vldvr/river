@@ -9,3 +9,5 @@ test-results/
 playwright-report/
 .river-profiles/
 tools/.cache/
+server/river.db*
+server/data/

@@ -1,4 +1,4 @@
-import { HostServer, loopback, type HostSnapshot, type Session } from '../../../host/index.ts'
+import { HostServer, loopback, type HostSnapshot, type RatingService, type Session } from '../../../host/index.ts'
 import type { GameConfig } from '../../../engine/index.ts'
 import type { ClientTransport, HostMessage } from '../../../protocol/index.ts'
 import type { NetAddress } from '../../../preload/api'
@@ -37,6 +37,7 @@ export class HostRuntime {
     config?: GameConfig
     restore?: HostSnapshot
     onRelay: (s: RelayStatus, error?: Error) => void
+    ratings?: RatingService
   }) {
     this.relaySecret = opts.relaySecret
     this.server = new HostServer({
@@ -46,6 +47,7 @@ export class HostRuntime {
       config: opts.config,
       restore: opts.restore,
       onSnapshot: (s) => this.queueSave(s),
+      ratings: opts.ratings,
     })
     this.relay = new HostRelay(opts.code, opts.relaySecret, this.server, opts.onRelay)
     native?.keepAwake(true)

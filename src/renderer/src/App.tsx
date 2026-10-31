@@ -4,6 +4,7 @@ import { native } from './lib/native'
 import { Game } from './screens/Game'
 import { Home } from './screens/Home'
 import { useApp } from './store/app'
+import { refreshRating } from './net/rating'
 
 export function App() {
   const screen = useApp((s) => s.screen)
@@ -14,6 +15,10 @@ export function App() {
     document.documentElement.dataset.felt = felt
     document.documentElement.dataset.accent = accent
   }, [felt, accent])
+
+  useEffect(() => {
+    void refreshRating()
+  }, [])
 
   useEffect(() => {
     if (!native) {

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { TableView } from '../../../protocol/index.ts'
 import type { UpdateState } from '../../../preload/api'
 import { load, save } from '../lib/storage'
-import { randomToken } from '../lib/id'
+import { newRecoveryCode, randomToken } from '../lib/id'
 
 export const PLAYER_COLORS = ['#e0a458', '#d0705a', '#c98bb9', '#8f9ee0', '#5fb3c9', '#6fbf8b', '#b8c46a', '#a59d90']
 
@@ -11,6 +11,11 @@ export interface ProfileState {
   color: string
   avatar: string | null
   token: string
+  /** Код восстановления: по нему сервер узнаёт игрока и хранит его рейтинг. */
+  secret: string
+  /** Старый локальный рейтинг уже перенесён на сервер. */
+  migrated: boolean
+  /** Последний известный рейтинг с сервера, для показа без сети. */
   rating: number
   ratingGames: number
 }
@@ -88,6 +93,8 @@ const defaultProfile: ProfileState = {
   color: PLAYER_COLORS[0]!,
   avatar: null,
   token: '',
+  secret: '',
+  migrated: false,
   rating: 1000,
   ratingGames: 0,
 }
@@ -105,8 +112,9 @@ const defaultSettings: Settings = {
 
 function initialProfile(): ProfileState {
   const p = load('profile', defaultProfile)
-  if (!p.token) {
-    p.token = randomToken()
+  if (!p.token || !p.secret) {
+    p.token ||= randomToken()
+    p.secret ||= newRecoveryCode()
     save('profile', p)
   }
   return p

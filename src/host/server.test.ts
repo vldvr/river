@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { seededRandomInt, DEFAULT_CONFIG, type GameConfig } from '../engine/index.ts'
 import { PROTOCOL_VERSION, type ClientTransport, type HostMessage, type TableView } from '../protocol/index.ts'
-import { HostServer, type HostSnapshot } from './server.ts'
+import { HostServer, type HostSnapshot, type RatingReport, type RatingService } from './server.ts'
 import { ManualScheduler } from './scheduler.ts'
 import { loopback } from './loopback.ts'
 
@@ -15,7 +15,7 @@ interface TestClient {
   auto: boolean
 }
 
-function harness(config: Partial<GameConfig> = {}, seed = 1) {
+function harness(config: Partial<GameConfig> = {}, seed = 1, ratings?: RatingService) {
   const sched = new ManualScheduler()
   const queue: (() => void)[] = []
   const rand = seededRandomInt(seed)
@@ -28,6 +28,7 @@ function harness(config: Partial<GameConfig> = {}, seed = 1) {
     scheduler: sched,
     rand,
     onSnapshot: (s) => (snapshot = s),
+    ratings,
   })
   const flush = () => {
     let guard = 0
@@ -95,7 +96,7 @@ function secretCards(server: HostServer, viewerId: string): string[] {
 }
 
 describe('HostServer', () => {
-  it('finishes a blackjack table and settles the active round before rating players', () => {
+  it('finishes a blackjack table and settles the active round, without rating it', () => {
     const H = harness({ game: 'blackjack', format: 'cash', startingStack: 500, bigBlind: 10, smallBlind: 5 }, 4)
     const host = H.connect('Хост', 'host-token-0000000000')
     const guest = H.connect('Гость', 'token-guest-00000000')
@@ -110,8 +111,7 @@ describe('HostServer', () => {
     H.flush()
     expect(H.server.state.phase).toBe('finished')
     expect(host.view!.results).toHaveLength(2)
-    expect(H.server.state.game.players.every((p) => p.ratingGames === 1)).toBe(true)
-    expect(host.view!.results.every((r) => r.ratingDelta !== 0 || r.rating === 1000)).toBe(true)
+    expect(host.view!.results.every((r) => r.ratingDelta === 0)).toBe(true)
     expect(guest.view!.players.every((p) => typeof p.rating === 'number')).toBe(true)
   })
 
@@ -353,5 +353,65 @@ describe('HostServer spectators', () => {
     H.flush()
     for (let i = 0; i < 20 && !watcher.view?.hand; i++) H.tick(300)
     expect(watcher.view!.hand!.seats.filter((s) => s.cards).length).toBe(0)
+  })
+})
+
+describe('HostServer rating', () => {
+  /** Сервер рейтинга понарошку: билет "t:<аккаунт>", итог принимает и отвечает изменениями. */
+  function fakeRatings() {
+    const reports: RatingReport[] = []
+    const svc: RatingService = {
+      async seat(ticket) {
+        return ticket.startsWith('t:') ? { account: ticket.slice(2), rating: 1200, games: 5 } : null
+      },
+      async report(r) {
+        reports.push(r)
+        const changes = r.final ? r.players.map((p, i) => ({ id: p.ticket.slice(2), rating: 1200 + (i === 0 ? 10 : -10), delta: i === 0 ? 10 : -10, games: 6 })) : undefined
+        return { game: { id: 'g1', key: 'k' }, done: r.final, changes }
+      },
+    }
+    return { svc, reports }
+  }
+  const settle = () => new Promise((r) => setTimeout(r, 0))
+
+  it('takes ratings from the server, reports humans only and shows the result', async () => {
+    const { svc, reports } = fakeRatings()
+    const H = harness({ startingStack: 300 }, 7, svc)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    const anya = H.connect('Аня', 'token-anya-000000000')
+    host.t.send({ t: 'addBot' })
+    host.t.send({ t: 'account', ticket: 't:host-account' })
+    anya.t.send({ t: 'account', ticket: 't:anya-account' })
+    H.flush()
+    await settle()
+    H.flush()
+    expect(host.view!.players.find((p) => p.id === anya.id)!.rating).toBe(1200)
+
+    host.t.send({ t: 'start' })
+    H.flush()
+    let guard = 0
+    while (H.server.state.phase !== 'finished' && guard++ < 200_000) {
+      H.tick(300)
+      if (guard % 50 === 0) await settle()
+    }
+    await settle()
+    await settle()
+    H.flush()
+    expect(reports.length).toBeGreaterThan(1)
+    // Бот в отчёт не попадает, после первого отчёта хост помнит партию.
+    expect(reports.every((r) => r.players.length === 2)).toBe(true)
+    expect(reports.at(-1)!.final).toBe(true)
+    expect(reports.at(-1)!.game).toEqual({ id: 'g1', key: 'k' })
+    expect(host.view!.results.filter((r) => r.ratingDelta !== 0)).toHaveLength(2)
+  })
+
+  it('ignores tickets the server does not accept', async () => {
+    const { svc } = fakeRatings()
+    const H = harness({}, 1, svc)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    host.t.send({ t: 'account', ticket: 'forged-ticket-xx' })
+    H.flush()
+    await settle()
+    expect(H.server.snapshot().accounts).toEqual([])
   })
 })
