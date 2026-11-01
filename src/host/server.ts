@@ -83,6 +83,8 @@ interface Member {
   missed: number
   leaving: boolean
   lastChat: number
+  lastReact: number
+  back: string
   rating: number
   ratingGames: number
 }
@@ -130,6 +132,7 @@ export interface HostSnapshot {
   showdown: ShowdownHand[] | null
   winners: number[]
   lastActions: [number, LastAction][]
+  ending?: boolean
   accounts?: [string, Account][]
   rated?: RatedGame | null
   savedAt: number
@@ -149,6 +152,9 @@ export interface HostOptions {
 
 const BOT_COLORS = ['#7aa6c2', '#c27a7a', '#8fb57a', '#b59a6a', '#9a86c4', '#6fb3a8', '#c49a6c', '#a3a3a3', '#c47ab0']
 const DISCONNECTED_TURN_MS = 10_000
+const BOT_BACKS = ['classic', 'lamp', 'wave']
+/** Отошедшего в турнире хост сбрасывает почти сразу: блайнды он платит, но стол не ждёт. */
+const SITTING_OUT_ACT_MS = 900
 /** Пауза между раундами блэкджека. */
 const BJ_BETWEEN_MS = 2200
 /** Сколько раундов подряд без ставки, прежде чем игрок «отошёл». */
@@ -177,6 +183,8 @@ export class HostServer {
   private kicked = new Set<string>()
   private locked = false
   private disposed = false
+  /** Хост нажал «Закончить»: доигрываем текущую раздачу и подводим итог. */
+  private ending = false
 
   private turn: { seat: number; startsAt: number; deadline: number; totalMs: number } | null = null
   private pausedRemaining: number | null = null
@@ -220,7 +228,10 @@ export class HostServer {
       this.lastActions = new Map(r.lastActions)
       this.accounts = new Map(r.accounts ?? [])
       this.rated = r.rated ?? null
-      for (const m of r.members) this.members.set(m.id, { ...m, rating: m.rating ?? 1000, ratingGames: m.ratingGames ?? 0, link: null })
+      this.ending = r.ending ?? false
+      for (const m of r.members) {
+        this.members.set(m.id, { ...m, rating: m.rating ?? 1000, ratingGames: m.ratingGames ?? 0, back: m.back ?? 'classic', lastReact: 0, link: null })
+      }
       // После восстановления ждём, пока все вернутся: хост снимет паузу сам.
       this.paused = this.phase === 'playing'
       const r0 = this.game.bj
@@ -314,6 +325,7 @@ export class HostServer {
       const old = m.link
       m.link = link
       if (old && old !== link) old.close()
+      m.back = msg.back ?? m.back
       if (this.phase === 'lobby') {
         m.name = this.uniqueName(msg.name, m.id)
         m.color = msg.color
@@ -338,6 +350,8 @@ export class HostServer {
         missed: 0,
         leaving: false,
         lastChat: 0,
+        lastReact: 0,
+        back: msg.back ?? 'classic',
         rating: 1000,
         ratingGames: 0,
       }
@@ -418,6 +432,15 @@ export class HostServer {
         return this.onLeave(m)
       case 'account':
         return this.onAccount(m, msg.ticket)
+      case 'profile':
+        return this.onProfile(m, msg)
+      case 'react': {
+        const now = this.sched.now()
+        if (now - m.lastReact < 1500) return
+        m.lastReact = now
+        this.sendAll({ t: 'react', from: m.id, r: msg.r })
+        return
+      }
     }
 
     if (!m.isHost) return
@@ -446,6 +469,8 @@ export class HostServer {
         return
       case 'again':
         return this.onAgain()
+      case 'end':
+        return this.requestEnd()
     }
   }
 
@@ -527,11 +552,35 @@ export class HostServer {
     this.broadcastEvents([{ t: 'show', seat: hp.seat, cards: [...hp.hole] }])
   }
 
-  private onLeave(m: Member) {
-    if (m.isHost && this.phase === 'playing') {
-      this.finish()
-      return
+  /** Хост заканчивает партию. Начатую раздачу доигрываем, чтобы банк ушёл честно. */
+  private requestEnd() {
+    if (this.phase !== 'playing') return
+    const h = this.game.hand
+    const r = this.game.bj
+    const midHand = this.isBj ? !!r && r.phase === 'playing' : !!h && !h.done
+    if (!midHand) return this.finish()
+    this.ending = true
+    if (this.paused) this.setPaused(false)
+    this.broadcastView()
+    this.save()
+  }
+
+  private onProfile(m: Member, msg: Extract<ClientMessage, { t: 'profile' }>) {
+    m.name = this.uniqueName(msg.name, m.id)
+    m.color = msg.color
+    m.back = msg.back ?? m.back
+    const gp = findPlayer(this.game, m.id)
+    if (gp) gp.name = m.name
+    if (msg.avatar !== m.avatar) {
+      m.avatar = msg.avatar
+      for (const x of this.members.values()) x.link?.send({ t: 'avatar', id: m.id, avatar: m.avatar })
     }
+    this.broadcastView()
+    this.save()
+  }
+
+  private onLeave(m: Member) {
+    if (m.isHost && this.phase === 'playing') return this.requestEnd()
     m.leaving = true
     const r = this.game.bj
     if (this.isBj && this.phase === 'playing' && r) {
@@ -599,6 +648,8 @@ export class HostServer {
       missed: 0,
       leaving: false,
       lastChat: 0,
+      lastReact: 0,
+      back: BOT_BACKS[this.members.size % BOT_BACKS.length]!,
       rating: 1000,
       ratingGames: 0,
     }
@@ -731,8 +782,9 @@ export class HostServer {
     if (this.isBj) return this.armBjBot(delay)
     const m = this.memberAtSeat(this.turn.seat)
     if (!m) return
-    if (m.leaving) {
-      this.botTimer = this.sched.setTimeout(() => this.forceAction(m, false), delay)
+    const away = this.game.config.format === 'tournament' && findPlayer(this.game, m.id)?.status === 'sittingOut'
+    if (m.leaving || away) {
+      this.botTimer = this.sched.setTimeout(() => this.forceAction(m, false), delay + (away ? SITTING_OUT_ACT_MS : 0))
     } else if (m.isBot) {
       const think = 700 + this.rand(1500)
       this.botTimer = this.sched.setTimeout(() => this.botAct(m), delay + think)
@@ -833,6 +885,7 @@ export class HostServer {
       }
     }
     this.game.finished = true
+    this.ending = false
     this.reportRating(true)
     this.phase = 'finished'
     this.turn = null
@@ -844,7 +897,7 @@ export class HostServer {
   private betweenHands() {
     for (const m of [...this.members.values()]) if (m.leaving) this.removeMember(m)
     if (this.phase !== 'playing') return
-    if (this.game.finished) return this.finish()
+    if (this.game.finished || this.ending) return this.finish()
     this.reportRating(false)
     if (this.paused) return this.broadcastView()
     if (this.isBj) {
@@ -1105,8 +1158,9 @@ export class HostServer {
         buyIns: gp?.buyIns ?? 0,
         place: gp?.place ?? null,
         hasAvatar: x.avatar !== null,
-        rating: gp?.rating ?? 1000,
-        ratingGames: gp?.ratingGames ?? 0,
+        rating: gp?.rating ?? x.rating,
+        ratingGames: gp?.ratingGames ?? x.ratingGames,
+        back: x.back,
       }
     })
     players.sort((a, b) => (a.seat ?? 99) - (b.seat ?? 99))
@@ -1158,6 +1212,7 @@ export class HostServer {
       phase: this.phase,
       paused: this.paused,
       locked: this.locked,
+      ending: this.ending,
       code: this.code,
       hostId: [...this.members.values()].find((x) => x.isHost)?.id ?? '',
       config: g.config,
@@ -1211,6 +1266,7 @@ export class HostServer {
       members: [...this.members.values()].map(({ link: _link, ...rest }) => rest),
       kicked: [...this.kicked],
       locked: this.locked,
+      ending: this.ending,
       seq: this.seq,
       shown: [...this.shown],
       showdown: this.showdown,

@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
-import { Copy, ImageSquare, Trash } from '@phosphor-icons/react'
+import { Copy, ImageSquare, Lock, Trash } from '@phosphor-icons/react'
 import { Avatar } from '../components/Avatar'
+import { PlayingCard } from '../components/PlayingCard'
+import { BACKS, isOpen, unlockHint } from '../lib/cosmetics'
 import { formatRecoveryCode, parseRecoveryCode } from '../lib/id'
 import { avatarFromFile } from '../lib/image'
 import { NoAccountError, restoreAccount } from '../net/rating'
@@ -64,6 +66,32 @@ export function ProfileEditor({ autoFocus }: { autoFocus?: boolean }) {
             />
           ))}
         </div>
+      </div>
+      <div className="field">
+        <span className="field__label">Рубашка карт</span>
+        <div className="backs">
+          {BACKS.map((b) => {
+            const open = isOpen(b.unlock, profile.rating, profile.ratingGames)
+            const on = (profile.back ?? 'classic') === b.id
+            return (
+              <button
+                key={b.id}
+                className={`back-swatch ${on ? 'is-on' : ''} ${open ? '' : 'is-locked'}`}
+                onClick={() => open && setProfile({ back: b.id })}
+                disabled={!open}
+                aria-pressed={on}
+                title={open ? b.name : unlockHint(b.unlock)}
+              >
+                <span className="back-swatch__card">
+                  <PlayingCard card={null} w={40} h={56} back={b.id} shadow={{ x: 0, y: 3 }} />
+                  {!open && <Lock size={16} weight="bold" />}
+                </span>
+                {b.name}
+              </button>
+            )
+          })}
+        </div>
+        <span className="row__hint">Твою рубашку видят все за столом. Новые открываются за партии в зачёт и рейтинг.</span>
       </div>
       {error && <p className="form-error">{error}</p>}
       <RatingSection />

@@ -33,6 +33,8 @@ export interface Flight {
   /** Для карт: поворот при посадке, градусы. */
   rotate?: number
   small?: boolean
+  /** Рубашка того, кому летит карта. */
+  back?: string
 }
 
 export interface Banner {

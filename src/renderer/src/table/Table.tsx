@@ -43,7 +43,8 @@ export function Table() {
       {[...places.values()].map((place) => {
         const s = scene.seats[place.seat]
         if (!s?.cards?.length) return null
-        return <SeatCards key={`cards-${place.seat}-${scene.handNo}`} place={place} seat={s} best={scene.best} showdown={showdown} />
+        const back = view.players.find((p) => p.seat === place.seat)?.back
+        return <SeatCards key={`cards-${place.seat}-${scene.handNo}`} place={place} seat={s} best={scene.best} showdown={showdown} back={back} />
       })}
 
       {[...places.values()].map((place) => {

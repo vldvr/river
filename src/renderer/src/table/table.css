@@ -97,8 +97,7 @@
   height: 820px;
   margin: -410px 0 0 -550px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(255 220 160 / 0.42), rgb(255 205 140 / 0.16) 42%, transparent 100%);
-  mix-blend-mode: soft-light;
+  background: radial-gradient(closest-side, rgb(255 214 150 / 0.13), rgb(255 205 140 / 0.05) 45%, transparent 100%);
   pointer-events: none;
 }
 

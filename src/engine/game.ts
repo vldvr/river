@@ -216,8 +216,10 @@ export function nextLevelAt(g: GameState): number | null {
   return g.startedAt + (g.level + 1) * g.config.levelMinutes * 60_000
 }
 
+/** В турнире отошедший остаётся в раздачах и платит блайнды, иначе стол встаёт навсегда. */
 function eligibleForHand(g: GameState): GamePlayer[] {
-  return seatedPlayers(g).filter((p) => p.status === 'active' && p.stack > 0)
+  const away = g.config.format === 'tournament'
+  return seatedPlayers(g).filter((p) => (p.status === 'active' || (away && p.status === 'sittingOut')) && p.stack > 0)
 }
 
 export function canStartHand(g: GameState): boolean {

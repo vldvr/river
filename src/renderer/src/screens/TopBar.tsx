@@ -6,7 +6,7 @@ import { isMac } from '../lib/native'
 import { send, isHost } from '../net/connection'
 import { useApp } from '../store/app'
 
-export function TopBar({ onSettings, onSide, onLeave }: { onSettings(): void; onSide(): void; onLeave(): void }) {
+export function TopBar({ onSettings, onSide, onLeave, onProfile }: { onSettings(): void; onSide(): void; onLeave(): void; onProfile(): void }) {
   const view = useApp((s) => s.view)
   const you = useApp((s) => s.you)
   const unread = useApp((s) => s.unread)
@@ -90,6 +90,14 @@ export function TopBar({ onSettings, onSide, onLeave }: { onSettings(): void; on
                 transition={{ duration: 0.16 }}
                 onMouseLeave={() => setMenu(false)}
               >
+                <button
+                  onClick={() => {
+                    setMenu(false)
+                    onProfile()
+                  }}
+                >
+                  Профиль и рубашка
+                </button>
                 {host && view.phase === 'playing' && (
                   <button
                     onClick={() => {
@@ -127,7 +135,7 @@ export function TopBar({ onSettings, onSide, onLeave }: { onSettings(): void; on
                     onLeave()
                   }}
                 >
-                  {host ? 'Закончить игру' : 'Выйти из игры'}
+                  {host ? (view.phase === 'playing' ? 'Закончить игру' : 'Закрыть стол') : 'Выйти из игры'}
                 </button>
               </motion.div>
             )}

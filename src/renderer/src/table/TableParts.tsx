@@ -122,7 +122,7 @@ function FlightItem({ f }: { f: Flight }) {
       onAnimationComplete={() => remove(f.id)}
     >
       {f.kind === 'card' ? (
-        <PlayingCard card={null} w={card.w} h={card.h} />
+        <PlayingCard card={null} w={card.w} h={card.h} back={f.back} />
       ) : (
         <ChipStack amount={f.amount} size={f.small ? 22 : 26} />
       )}

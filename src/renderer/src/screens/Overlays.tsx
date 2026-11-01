@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Trophy } from '@phosphor-icons/react'
 import type { TableView } from '../../../protocol/index.ts'
 import { chips, signedChips } from '../lib/format'
-import { isHost, send } from '../net/connection'
+import { isHost, leaveGame, send } from '../net/connection'
 import { useApp } from '../store/app'
 import { useScene } from '../store/scene'
 
@@ -49,9 +49,14 @@ export function Results({ view }: { view: TableView }) {
         ))}
       </ol>
       {host ? (
-        <button className="btn btn--primary btn--lg" onClick={() => send({ t: 'again' })}>
-          Ещё партию
-        </button>
+        <div className="results__actions">
+          <button className="btn btn--lg" onClick={() => leaveGame()}>
+            Закрыть стол
+          </button>
+          <button className="btn btn--primary btn--lg" onClick={() => send({ t: 'again' })}>
+            Ещё партию
+          </button>
+        </div>
       ) : (
         <p className="results__wait">Хост может начать новую партию</p>
       )}
@@ -85,6 +90,13 @@ export function CenterNotice({ view }: { view: TableView }) {
         )}
       </>
     )
+  } else if (view.ending) {
+    content = (
+      <>
+        <div className="notice__title">Последняя раздача</div>
+        <div className="notice__sub">Хост заканчивает игру: после неё будут итоги</div>
+      </>
+    )
   } else if (waiting) {
     content = (
       <>
@@ -113,7 +125,8 @@ export function SideActions({ view }: { view: TableView }) {
   if (!me || view.phase !== 'playing') return null
 
   let content: React.ReactNode = null
-  if (view.you.canRebuy) {
+  // Пока доска докладывается после олл-ина, итог ещё никто не видел: ребай покажем после раздачи.
+  if (view.you.canRebuy && !live) {
     const left = view.you.reentriesLeft
     content = (
       <div className="sideact panel">

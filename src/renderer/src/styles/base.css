@@ -70,6 +70,18 @@
   --felt-deep: #341018;
 }
 
+[data-felt='graphite'] {
+  --felt: #3a3d3f;
+  --felt-lit: #55595b;
+  --felt-deep: #1f2122;
+}
+
+[data-felt='sea'] {
+  --felt: #145a5e;
+  --felt-lit: #1f7e82;
+  --felt-deep: #0a3537;
+}
+
 [data-accent='ice'] {
   --lamp: #78c7d8;
   --lamp-ink: #071b20;

@@ -1,11 +1,13 @@
-import { motion } from 'motion/react'
 import { memo } from 'react'
-import { CENTER, FELT, lerp } from './geometry'
+import { FELT } from './geometry'
 import type { Pt } from '../store/scene'
 
-/** Стол: кожаный борт, сукно и пятно света лампы, которое тянется к тому, чей ход. */
-export const Felt = memo(function Felt({ focus, calm }: { focus: Pt | null; calm: boolean }) {
-  const target = focus ? lerp(CENTER, focus, 0.3) : CENTER
+/**
+ * Стол: кожаный борт, сукно и неподвижное пятно света лампы. Раньше пятно ездило к тому,
+ * чей ход, и смешивалось через soft-light: на сукне от этого гуляли блики и полосы.
+ * Чей ход, и так видно по кольцу таймера.
+ */
+export const Felt = memo(function Felt(_props: { focus?: Pt | null; calm?: boolean }) {
   return (
     <div className="felt-wrap" aria-hidden="true">
       <div className="room-light" />
@@ -28,12 +30,7 @@ export const Felt = memo(function Felt({ focus, calm }: { focus: Pt | null; calm
         }}
       >
         <div className="felt__line" />
-        <motion.div
-          className="lamp"
-          initial={false}
-          animate={{ x: target.x - CENTER.x, y: target.y - CENTER.y }}
-          transition={calm ? { duration: 0 } : { duration: 1.1, ease: [0.65, 0, 0.35, 1] }}
-        />
+        <div className="lamp" />
         <div className="felt__mark">Ривер</div>
       </div>
     </div>

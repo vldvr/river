@@ -2,13 +2,15 @@ import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Modal } from '../components/Modal'
 import { isMac } from '../lib/native'
-import { isHost, leaveGame } from '../net/connection'
+import { endGame, isHost, leaveGame } from '../net/connection'
 import { useApp } from '../store/app'
 import { ActionBar } from '../table/ActionBar'
 import { Table } from '../table/Table'
 import { BjTable } from '../table/BjTable'
 import { BjBar } from '../table/BjBar'
 import { LobbyPanel } from './LobbyPanel'
+import { ProfileEditor } from './ProfileEditor'
+import { Reactions } from './Reactions'
 import { CenterNotice, Results, SideActions } from './Overlays'
 import { SettingsModal } from './SettingsModal'
 import { SidePanel } from './SidePanel'
@@ -20,6 +22,7 @@ export function Game() {
   const [side, setSide] = useState(false)
   const [settings, setSettings] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [profile, setProfile] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,10 +43,12 @@ export function Game() {
   }
 
   const host = isHost()
+  // Хост в идущей партии подводит итог у всех, а не закрывает стол.
+  const ending = view.phase === 'playing'
   return (
     <div className={`game ${isMac ? 'is-mac' : ''}`}>
       {view.config.game === 'blackjack' ? <BjTable /> : <Table />}
-      <TopBar onSettings={() => setSettings(true)} onSide={() => setSide((s) => !s)} onLeave={() => setConfirmLeave(true)} />
+      <TopBar onSettings={() => setSettings(true)} onSide={() => setSide((s) => !s)} onLeave={() => setConfirmLeave(true)} onProfile={() => setProfile(true)} />
       <div className="game__center">
         <AnimatePresence mode="wait">
           {view.phase === 'lobby' && <LobbyPanel key="lobby" view={view} />}
@@ -53,12 +58,23 @@ export function Game() {
       </div>
       {view.phase === 'playing' && (view.config.game === 'blackjack' ? <BjBar /> : <ActionBar />)}
       <SideActions view={view} />
+      {view.phase !== 'lobby' && <Reactions />}
       <SidePanel open={side} onClose={() => setSide(false)} />
       <SettingsModal open={settings} onClose={() => setSettings(false)} />
-      <Modal open={confirmLeave} title={host ? 'Закончить игру?' : 'Выйти из игры?'} onClose={() => setConfirmLeave(false)} width={420}>
+      <Modal open={profile} title="Профиль" onClose={() => setProfile(false)} width={480}>
+        <ProfileEditor />
+        <div className="confirm__actions">
+          <button className="btn btn--primary" onClick={() => setProfile(false)}>
+            Готово
+          </button>
+        </div>
+      </Modal>
+      <Modal open={confirmLeave} title={host ? (ending ? 'Закончить игру?' : 'Закрыть стол?') : 'Выйти из игры?'} onClose={() => setConfirmLeave(false)} width={420}>
         <p className="confirm__text">
-          {host
-            ? 'Ты хост: если закончить игру, стол закроется у всех.'
+          {host && ending
+            ? 'Начатая раздача доиграется, потом все увидят итоги и изменения рейтинга.'
+            : host
+              ? 'Стол закроется у всех.'
             : view.phase === 'playing' && view.config.format === 'tournament'
               ? 'В турнире вернуться за стол уже не получится.'
               : 'Твоё место освободится.'}
@@ -71,10 +87,11 @@ export function Game() {
             className="btn btn--primary"
             onClick={() => {
               setConfirmLeave(false)
-              leaveGame()
+              if (host && ending) endGame()
+              else leaveGame()
             }}
           >
-            {host ? 'Закончить' : 'Выйти'}
+            {host ? (ending ? 'Закончить' : 'Закрыть') : 'Выйти'}
           </button>
         </div>
       </Modal>

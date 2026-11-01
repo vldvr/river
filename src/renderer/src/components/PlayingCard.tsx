@@ -41,9 +41,11 @@ interface Props {
   flipIn?: { delay: number; from: { x: number; y: number } }
   shadow?: { x: number; y: number }
   className?: string
+  /** Рубашка владельца карт. */
+  back?: string
 }
 
-export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, flipIn, shadow, className }: Props) {
+export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, flipIn, shadow, className, back }: Props) {
   const fourColor = useApp((s) => s.settings.fourColor)
   const faceUp = card !== null
   const rank = card ? (RANK_LABEL[card[0]!] ?? card[0]!) : ''
@@ -95,7 +97,7 @@ export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, fli
           </>
         )}
       </div>
-      <div className="pcard__back" />
+      <div className={`pcard__back ${back && back !== 'classic' ? `is-${back}` : ''}`} />
     </motion.div>
   )
 })

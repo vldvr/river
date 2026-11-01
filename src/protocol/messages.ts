@@ -1,8 +1,16 @@
 import { z } from 'zod'
 import type { TableView, ViewEvent } from './view.ts'
 
-export const PROTOCOL_VERSION = 3
+export const PROTOCOL_VERSION = 4
 export const APP_ID = `river-holdem-v${PROTOCOL_VERSION}`
+
+/** Рубашки карт. Какие открыты, решает клиент по своему рейтингу; хосту всё равно. */
+export const CARD_BACKS = ['classic', 'lamp', 'wave', 'ivy', 'checker', 'night', 'gold'] as const
+export type CardBack = (typeof CARD_BACKS)[number]
+const cardBackSchema = z.enum(CARD_BACKS).optional().catch(undefined)
+
+/** Быстрые реакции за столом. */
+export const REACTIONS = ['Красиво', 'Блеф!', 'Ну ты и рыба', 'Повезло', 'Спасибо', 'Ой всё', 'GG', 'Думай быстрее'] as const
 
 /** Аватар: webp/png/jpeg data-URL, до ~48 КБ. */
 const avatarSchema = z
@@ -41,7 +49,17 @@ export const clientMessage = z.discriminatedUnion('t', [
     color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     avatar: avatarSchema.nullable(),
     token: z.string().min(16).max(64),
+    back: cardBackSchema,
   }),
+  /** Смена имени, цвета, картинки или рубашки прямо за столом. */
+  z.object({
+    t: z.literal('profile'),
+    name: z.string().trim().min(1).max(20),
+    color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    avatar: avatarSchema.nullable(),
+    back: cardBackSchema,
+  }),
+  z.object({ t: z.literal('react'), r: z.number().int().min(0).max(REACTIONS.length - 1) }),
   /** Билет сервера рейтинга: хост узнаёт по нему аккаунт игрока и его Эло. */
   z.object({ t: z.literal('account'), ticket: z.string().min(10).max(400) }),
   z.object({ t: z.literal('action'), handNo: z.number().int(), action: playerAction }),
@@ -70,6 +88,8 @@ export const clientMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('pause'), paused: z.boolean() }),
   z.object({ t: z.literal('lock'), locked: z.boolean() }),
   z.object({ t: z.literal('again') }),
+  /** Закончить партию: сразу, если раздача не идёт, иначе после неё. */
+  z.object({ t: z.literal('end') }),
 ])
 
 export type ClientMessage = z.infer<typeof clientMessage>
@@ -87,6 +107,7 @@ export type HostMessage =
   | { t: 'events'; seq: number; events: ViewEvent[]; view: TableView }
   | { t: 'avatar'; id: string; avatar: string | null }
   | { t: 'chat'; from: string; name: string; text: string; ts: number }
+  | { t: 'react'; from: string; r: number }
   | { t: 'error'; message: string }
   | { t: 'pong'; ts: number }
 

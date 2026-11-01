@@ -29,6 +29,18 @@ nsis:
   uninstallDisplayName: Ривер
   deleteAppDataOnUninstall: false
   artifactName: River-Setup-${version}.${ext}
+mac:
+  icon: build/icon.png
+  category: public.app-category.card-games
+  # Подписи Apple нет: подписываем ad-hoc, иначе на Apple Silicon macOS называет приложение повреждённым.
+  identity: '-'
+  hardenedRuntime: false
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+dmg:
+  artifactName: River-${version}-mac-${arch}.${ext}
+  title: Ривер
 portable:
   artifactName: River-${version}-portable.${ext}
 publish:

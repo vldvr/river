@@ -415,3 +415,51 @@ describe('HostServer rating', () => {
     expect(H.server.snapshot().accounts).toEqual([])
   })
 })
+
+describe('HostServer ending', () => {
+  it('the host ends a cash game after the current hand, not in the middle of it', () => {
+    const H = harness({ format: 'cash' }, 3)
+    const host = H.connect('Хост', 'host-token-0000000000', false)
+    H.connect('Аня', 'token-anya-000000000', false)
+    host.t.send({ t: 'start' })
+    H.flush()
+    H.tick(3000)
+    expect(H.server.state.game.hand?.done).toBe(false)
+    host.t.send({ t: 'end' })
+    H.flush()
+    expect(H.server.state.phase).toBe('playing')
+    expect(host.view!.ending).toBe(true)
+    let guard = 0
+    while (H.server.state.phase !== 'finished' && guard++ < 2000) H.tick(500)
+    expect(H.server.state.phase).toBe('finished')
+    const total = H.server.state.game.players.reduce((s, p) => s + p.stack, 0)
+    expect(total).toBe(2 * H.server.state.game.config.startingStack)
+  })
+
+  it('a tournament finishes even when a player walked away for good', () => {
+    const H = harness({ startingStack: 300, levelMinutes: 1 }, 9)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    const gone = H.connect('Ушёл', 'token-gone-000000000', false)
+    host.t.send({ t: 'start' })
+    H.flush()
+    gone.t.send({ t: 'sit', out: true })
+    gone.t.close()
+    H.flush()
+    let guard = 0
+    while (H.server.state.phase !== 'finished' && guard++ < 100_000) H.tick(500)
+    expect(H.server.state.phase).toBe('finished')
+    expect(host.view!.results.map((r) => r.place).sort()).toEqual([1, 2])
+  })
+
+  it('players can change name, colour and card back at the table', () => {
+    const H = harness({ format: 'cash' }, 2)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    const anya = H.connect('Аня', 'token-anya-000000000')
+    host.t.send({ t: 'start' })
+    H.flush()
+    anya.t.send({ t: 'profile', name: 'Анна', color: '#112233', avatar: null, back: 'ivy' })
+    H.flush()
+    const p = host.view!.players.find((x) => x.id === anya.id)!
+    expect([p.name, p.color, p.back]).toEqual(['Анна', '#112233', 'ivy'])
+  })
+})

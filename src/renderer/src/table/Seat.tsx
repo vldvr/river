@@ -10,6 +10,7 @@ import { chips, plural } from '../lib/format'
 import type { SceneSeat } from '../store/scene'
 import { useApp } from '../store/app'
 import { HERO_CARD, SMALL_CARD, shadowFor, type SeatPlace } from './geometry'
+import { SeatExtras } from './SeatExtras'
 
 const LABEL: Record<string, string> = {
   fold: 'Фолд',
@@ -64,6 +65,7 @@ export const Seat = memo(function Seat({ place, player, avatar, seat, acting, tu
       className={`seat ${acting ? 'is-acting' : ''} ${winner ? 'is-winner' : ''} ${place.hero ? 'is-hero' : ''}`}
       style={{ left: place.pos.x, top: place.pos.y }}
     >
+      <SeatExtras player={player} />
       <div className="seat__avatar">
         {acting && turnEndsAt !== null && <TurnRing endsAt={turnEndsAt} total={turnTotal} hero={place.hero} />}
         <Avatar name={player.name} color={player.color} src={avatar} size={AVATAR} dim={folded || out || !player.connected} />
@@ -169,11 +171,13 @@ export const SeatCards = memo(function SeatCards({
   seat,
   best,
   showdown,
+  back,
 }: {
   place: SeatPlace
   seat: SceneSeat
   best: string[] | null
   showdown: boolean
+  back?: string
 }) {
   const cards = seat.cards
   const size = place.hero ? HERO_CARD : SMALL_CARD
@@ -194,7 +198,7 @@ export const SeatCards = memo(function SeatCards({
               exit={{ opacity: 0, y: place.hero ? -40 : 0, scale: 0.8, transition: { duration: 0.32 } }}
               transition={{ duration: 0.12 }}
             >
-              <PlayingCard card={c} w={size.w} h={size.h} shadow={sh} win={showdown && inBest} dim={showdown && !!best && !inBest} />
+              <PlayingCard card={c} w={size.w} h={size.h} shadow={sh} win={showdown && inBest} dim={showdown && !!best && !inBest} back={back} />
             </motion.div>
           )
         })}

@@ -1,14 +1,18 @@
+import { Lock } from '@phosphor-icons/react'
 import { Modal } from '../components/Modal'
 import { SuitIcon, suitColor } from '../components/PlayingCard'
 import { Switch } from '../components/Switch'
 import { sound } from '../audio/sound'
 import { native } from '../lib/native'
+import { isOpen, unlockHint, type Unlock } from '../lib/cosmetics'
 import { useApp, type Accent, type Felt } from '../store/app'
 
-const FELTS: { id: Felt; name: string; color: string }[] = [
-  { id: 'green', name: 'Зелёное', color: '#2c7a5c' },
-  { id: 'blue', name: 'Синее', color: '#2b5f8c' },
-  { id: 'wine', name: 'Бордовое', color: '#7b2d3c' },
+const FELTS: { id: Felt; name: string; color: string; unlock: Unlock }[] = [
+  { id: 'green', name: 'Зелёное', color: '#2c7a5c', unlock: {} },
+  { id: 'blue', name: 'Синее', color: '#2b5f8c', unlock: {} },
+  { id: 'wine', name: 'Бордовое', color: '#7b2d3c', unlock: {} },
+  { id: 'graphite', name: 'Графит', color: '#55595b', unlock: { games: 5 } },
+  { id: 'sea', name: 'Море', color: '#1f7e82', unlock: { rating: 1100 } },
 ]
 const ACCENTS: { id: Accent; name: string; color: string }[] = [
   { id: 'amber', name: 'Янтарь', color: '#f0b357' },
@@ -21,6 +25,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
   const set = useApp((st) => st.setSettings)
   const version = useApp((st) => st.appVersion)
   const update = useApp((st) => st.update)
+  const profile = useApp((st) => st.profile)
 
   return (
     <Modal open={open} title="Настройки" onClose={onClose} width={480}>
@@ -99,12 +104,24 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
       <div className="field">
         <span className="field__label">Сукно</span>
         <div className="felts">
-          {FELTS.map((f) => (
-            <button key={f.id} className={`felt-swatch ${s.felt === f.id ? 'is-on' : ''}`} onClick={() => set({ felt: f.id })} aria-pressed={s.felt === f.id}>
-              <span style={{ background: `radial-gradient(circle at 40% 35%, ${f.color}, color-mix(in oklab, ${f.color} 60%, #000))` }} />
-              {f.name}
-            </button>
-          ))}
+          {FELTS.map((f) => {
+            const open = isOpen(f.unlock, profile.rating, profile.ratingGames)
+            return (
+              <button
+                key={f.id}
+                className={`felt-swatch ${s.felt === f.id ? 'is-on' : ''} ${open ? '' : 'is-locked'}`}
+                onClick={() => open && set({ felt: f.id })}
+                aria-pressed={s.felt === f.id}
+                disabled={!open}
+                title={open ? f.name : unlockHint(f.unlock)}
+              >
+                <span style={{ background: `radial-gradient(circle at 40% 35%, ${f.color}, color-mix(in oklab, ${f.color} 60%, #000))` }}>
+                  {!open && <Lock size={14} weight="bold" />}
+                </span>
+                {f.name}
+              </button>
+            )
+          })}
         </div>
       </div>
 

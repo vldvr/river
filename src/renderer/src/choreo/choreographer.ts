@@ -188,7 +188,8 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
             const to = p.hero
               ? { x: p.cards.x + (pass === 0 ? -HERO_CARD.w * 0.32 : HERO_CARD.w * 0.32), y: p.cards.y }
               : { x: p.cards.x + (pass === 0 ? -12 : 12), y: p.cards.y }
-            S.addFlight({ kind: 'card', from: DECK, to, amount: 0, delay, duration: dur, rotate: pass === 0 ? -6 : 6, small: !p.hero })
+            const back = useApp.getState().view?.players.find((x) => x.seat === seat)?.back
+            S.addFlight({ kind: 'card', from: DECK, to, amount: 0, delay, duration: dur, rotate: pass === 0 ? -6 : 6, small: !p.hero, back })
           }
           sound.play('deal', { volume: 0.6, delay })
           later(delay + dur, gen, () => {

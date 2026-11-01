@@ -31,6 +31,7 @@ export interface PlayerView {
   hasAvatar: boolean
   rating: number
   ratingGames: number
+  back: string
 }
 
 export interface SeatInHand {
@@ -99,6 +100,8 @@ export interface TableView {
   paused: boolean
   /** Вход новым участникам закрыт хостом. */
   locked: boolean
+  /** Хост закончил игру: она завершится после текущей раздачи. */
+  ending: boolean
   code: string
   hostId: string
   config: GameConfig

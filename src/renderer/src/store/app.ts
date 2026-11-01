@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { TableView } from '../../../protocol/index.ts'
+import type { CardBack, TableView } from '../../../protocol/index.ts'
 import type { UpdateState } from '../../../preload/api'
 import { load, save } from '../lib/storage'
 import { newRecoveryCode, randomToken } from '../lib/id'
@@ -13,6 +13,8 @@ export interface ProfileState {
   token: string
   /** Код восстановления: по нему сервер узнаёт игрока и хранит его рейтинг. */
   secret: string
+  /** Рубашка, которую видят все за столом. */
+  back: CardBack
   /** Старый локальный рейтинг уже перенесён на сервер. */
   migrated: boolean
   /** Последний известный рейтинг с сервера, для показа без сети. */
@@ -20,7 +22,7 @@ export interface ProfileState {
   ratingGames: number
 }
 
-export type Felt = 'green' | 'blue' | 'wine'
+export type Felt = 'green' | 'blue' | 'wine' | 'graphite' | 'sea'
 export type Accent = 'amber' | 'ice' | 'rose'
 export type Speed = 'normal' | 'fast'
 
@@ -78,6 +80,8 @@ interface AppState {
   log: LogLine[]
   /** Растёт, когда хост отклонил действие: панель действий снова показывается. */
   rejected: number
+  /** Последняя реакция каждого игрока: фраза над местом. */
+  reactions: Record<string, { r: number; at: number }>
   toasts: Toast[]
   update: UpdateState
   appVersion: string
@@ -94,6 +98,7 @@ const defaultProfile: ProfileState = {
   avatar: null,
   token: '',
   secret: '',
+  back: 'classic',
   migrated: false,
   rating: 1000,
   ratingGames: 0,
@@ -140,6 +145,7 @@ export const useApp = create<AppState>((set, get) => ({
   unread: 0,
   log: [],
   rejected: 0,
+  reactions: {},
   toasts: [],
   update: { state: 'idle' },
   appVersion: '0.0.0',

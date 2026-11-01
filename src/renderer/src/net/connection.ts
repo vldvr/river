@@ -32,8 +32,24 @@ async function profileFor(room: string): Promise<Profile> {
     avatar: p.avatar,
     token: await roomToken(p.token, room),
     appVersion: useApp.getState().appVersion,
+    back: p.back,
   }
 }
+
+// Профиль поменяли прямо за столом: отправляем хосту, когда пользователь закончил печатать.
+let profileTimer: ReturnType<typeof setTimeout> | null = null
+useApp.subscribe((s, prev) => {
+  if (s.profile === prev.profile || !session || s.screen !== 'game') return
+  const a = s.profile
+  const b = prev.profile
+  if (a.name === b.name && a.color === b.color && a.avatar === b.avatar && a.back === b.back) return
+  if (profileTimer) clearTimeout(profileTimer)
+  profileTimer = setTimeout(() => {
+    const p = useApp.getState().profile
+    if (!session || !p.name.trim()) return
+    session.updateProfile({ name: p.name.trim(), color: p.color, avatar: p.avatar, back: p.back })
+  }, 700)
+})
 
 /** Хосту билет рейтинга: по нему он узнаёт наш аккаунт. Без сети играем вне зачёта. */
 async function sendAccount(code: string) {
@@ -85,6 +101,10 @@ function handlers(): SessionHandlers {
       const s = useApp.getState()
       set({ chat: [...s.chat, { id: ++chatSeq, ...msg }].slice(-200), unread: s.unread + 1 })
       if (msg.from !== s.you) sound.play('message', { volume: 0.4 })
+    },
+    onReact(from, r) {
+      set({ reactions: { ...useApp.getState().reactions, [from]: { r, at: Date.now() } } })
+      sound.play('message', { volume: 0.35 })
     },
     onReject(reason, hostVersion) {
       let text = REJECTS[reason]
@@ -241,6 +261,15 @@ export async function joinByAddress(input: string) {
 export function cancelJoin() {
   target = null
   set({ role: null, code: null, conn: 'idle' })
+}
+
+/** Хост заканчивает партию у всех: итог и рейтинг увидит каждый. */
+export function endGame() {
+  session?.send({ t: 'end' })
+}
+
+export function react(r: number) {
+  session?.send({ t: 'react', r })
 }
 
 export function send(msg: ClientMessage) {

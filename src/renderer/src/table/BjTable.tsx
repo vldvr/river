@@ -11,6 +11,7 @@ import { useBj } from '../store/bjscene'
 import { BJ_CARD, DEALER, SHOE, bjCardPos, dealerCardPos, type BjPlace } from './bjGeometry'
 import { Felt } from './Felt'
 import { shadowFor } from './geometry'
+import { SeatExtras } from './SeatExtras'
 import { Stage } from './Stage'
 import { Flights } from './TableParts'
 import './table.css'
@@ -154,6 +155,7 @@ function BjSeatView({
   const c = 2 * Math.PI * r
   return (
     <div className={`seat ${acting ? 'is-acting' : ''} ${place.hero ? 'is-hero' : ''}`} style={{ left: place.pos.x, top: place.pos.y }}>
+      <SeatExtras player={player} />
       <div className="seat__avatar">
         {acting && turnEndsAt !== null && (
           <svg className="ring" width={104} height={104} viewBox="0 0 104 104" aria-hidden="true">

@@ -15,6 +15,7 @@ export interface SessionHandlers {
   onEvents(seq: number, events: ViewEvent[], view: TableView): void
   onAvatar(id: string, avatar: string | null): void
   onChat(msg: { from: string; name: string; text: string; ts: number }): void
+  onReact(from: string, r: number): void
   onReject(reason: RejectReason, hostVersion?: string): void
   onError(message: string): void
   /** Транспорт закрылся не по нашей воле. */
@@ -52,7 +53,13 @@ export class GameSession {
     this.pingTimer = setInterval(() => this.send({ t: 'ping', ts: Date.now(), rtt: this.rtt }), PING_MS)
   }
 
-  get connected() {
+  /** Новое имя, цвет, картинка или рубашка: хост покажет их всем сразу. */
+  updateProfile(p: Pick<Profile, 'name' | 'color' | 'avatar' | 'back'>) {
+    this.profile = { ...this.profile, ...p }
+    this.send({ t: 'profile', name: p.name, color: p.color, avatar: p.avatar, back: p.back })
+  }
+
+    get connected() {
     return this.transport !== null
   }
 
@@ -98,6 +105,8 @@ export class GameSession {
         return this.h.onAvatar(msg.id, msg.avatar)
       case 'chat':
         return this.h.onChat(msg)
+      case 'react':
+        return this.h.onReact(msg.from, msg.r)
       case 'reject':
         this.closing = true
         return this.h.onReject(msg.reason, msg.hostVersion)
