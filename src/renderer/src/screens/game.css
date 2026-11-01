@@ -775,8 +775,9 @@
 }
 
 .felts {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .accent-swatches {
@@ -811,22 +812,23 @@
 }
 
 .felt-swatch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px 6px 6px;
-  border-radius: var(--radius-pill);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 4px 8px;
   border: 1px solid var(--line);
-  background: transparent;
-  font-size: 14px;
+  border-radius: var(--radius-s);
+  background: rgb(0 0 0 / 0.12);
+  font-size: 12px;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .felt-swatch span {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   color: rgb(255 255 255 / 0.75);
 }
@@ -834,7 +836,19 @@
 .felt-swatch.is-locked,
 .back-swatch.is-locked {
   cursor: not-allowed;
-  opacity: 0.55;
+}
+
+/* Закрытое приглушаем само по себе, а условие открытия оставляем читаемым. */
+.felt-swatch.is-locked > span,
+.back-swatch.is-locked .pcard {
+  opacity: 0.5;
+}
+
+.swatch__lock {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--lamp);
+  text-align: center;
 }
 
 /* Выбор рубашки */
@@ -954,8 +968,9 @@
   color: var(--error);
 }
 
+.felt-swatch:hover:not(:disabled),
 .felt-swatch.is-on {
-  border-color: var(--lamp-40);
+  border-color: var(--lamp);
   color: var(--text);
 }
 

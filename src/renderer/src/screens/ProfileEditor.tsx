@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Copy, ImageSquare, Lock, Trash } from '@phosphor-icons/react'
 import { Avatar } from '../components/Avatar'
 import { PlayingCard } from '../components/PlayingCard'
-import { BACKS, isOpen, unlockHint } from '../lib/cosmetics'
+import { BACKS, isOpen, unlockHint, unlockLeft } from '../lib/cosmetics'
 import { formatRecoveryCode, parseRecoveryCode } from '../lib/id'
 import { avatarFromFile } from '../lib/image'
 import { NoAccountError, restoreAccount } from '../net/rating'
@@ -81,17 +81,19 @@ export function ProfileEditor({ autoFocus }: { autoFocus?: boolean }) {
                 disabled={!open}
                 aria-pressed={on}
                 title={open ? b.name : unlockHint(b.unlock)}
+                aria-label={open ? b.name : `${b.name}. ${unlockHint(b.unlock)}`}
               >
                 <span className="back-swatch__card">
                   <PlayingCard card={null} w={40} h={56} back={b.id} shadow={{ x: 0, y: 3 }} />
                   {!open && <Lock size={16} weight="bold" />}
                 </span>
                 {b.name}
+                {!open && <small className="swatch__lock">{unlockLeft(b.unlock, profile.rating, profile.ratingGames)}</small>}
               </button>
             )
           })}
         </div>
-        <span className="row__hint">Твою рубашку видят все за столом. Новые открываются за партии в зачёт и рейтинг.</span>
+        <span className="row__hint">Твою рубашку видят все за столом. Закрытые открываются за партии в зачёт и рейтинг: что считается, написано ниже.</span>
       </div>
       {error && <p className="form-error">{error}</p>}
       <RatingSection />

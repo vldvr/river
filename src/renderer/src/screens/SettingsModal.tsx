@@ -4,7 +4,7 @@ import { SuitIcon, suitColor } from '../components/PlayingCard'
 import { Switch } from '../components/Switch'
 import { sound } from '../audio/sound'
 import { native } from '../lib/native'
-import { isOpen, unlockHint, type Unlock } from '../lib/cosmetics'
+import { isOpen, UNLOCK_RULE, unlockHint, unlockLeft, type Unlock } from '../lib/cosmetics'
 import { useApp, type Accent, type Felt } from '../store/app'
 
 const FELTS: { id: Felt; name: string; color: string; unlock: Unlock }[] = [
@@ -114,15 +114,18 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
                 aria-pressed={s.felt === f.id}
                 disabled={!open}
                 title={open ? f.name : unlockHint(f.unlock)}
+                aria-label={open ? f.name : `${f.name}. ${unlockHint(f.unlock)}`}
               >
                 <span style={{ background: `radial-gradient(circle at 40% 35%, ${f.color}, color-mix(in oklab, ${f.color} 60%, #000))` }}>
                   {!open && <Lock size={14} weight="bold" />}
                 </span>
                 {f.name}
+                {!open && <small className="swatch__lock">{unlockLeft(f.unlock, profile.rating, profile.ratingGames)}</small>}
               </button>
             )
           })}
         </div>
+        {FELTS.some((f) => !isOpen(f.unlock, profile.rating, profile.ratingGames)) && <span className="row__hint">{UNLOCK_RULE}</span>}
       </div>
 
       <div className="settings__foot">
