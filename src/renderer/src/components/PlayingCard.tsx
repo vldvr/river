@@ -46,11 +46,12 @@ interface Props {
 }
 
 export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, flipIn, shadow, className, back }: Props) {
-  const fourColor = useApp((s) => s.settings.fourColor)
+  const deck = useApp((s) => s.settings.deck)
   const faceUp = card !== null
   const rank = card ? (RANK_LABEL[card[0]!] ?? card[0]!) : ''
   const suit = card ? card[1]! : 's'
-  const color = suitColor(suit, fourColor)
+  const filled = deck === 'filled'
+  const color = suitColor(suit, deck !== 'classic')
   const big = h >= 100
   const rankSize = Math.round(h * (rank.length > 1 ? 0.3 : 0.34))
   const sh = shadow ?? { x: 0, y: 6 }
@@ -82,7 +83,11 @@ export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, fli
       aria-label={card ? `${rank} ${SUIT_NAME[suit]}` : 'карта рубашкой вверх'}
       role="img"
     >
-      <div className={`pcard__face ${win ? 'is-win' : ''}`} style={{ color }}>
+      <div
+        className={`pcard__face ${win ? 'is-win' : ''} ${filled && card ? 'is-filled' : ''}`}
+        // Чёрная карта чуть светлее чернил, иначе она сливается с тенью.
+        style={filled && card ? ({ '--suit': suit === 's' ? '#34363b' : color } as React.CSSProperties) : { color }}
+      >
         {card && (
           <>
             <span className="pcard__rank num" style={{ fontSize: rankSize }}>

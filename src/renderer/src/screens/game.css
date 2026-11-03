@@ -764,14 +764,23 @@
   color: var(--muted);
 }
 
-.settings__suits {
+.settings__deck {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-top: 4px;
 }
 
-.settings__suits .switch {
+.settings__deck .row__hint {
   margin-left: 8px;
+}
+
+.settings__sizes > span {
+  flex: 1;
+}
+
+.settings__sizes .input {
+  width: 150px;
 }
 
 .felts {

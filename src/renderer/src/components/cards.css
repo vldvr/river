@@ -23,6 +23,23 @@
   transition: box-shadow 300ms var(--ease);
 }
 
+/* Цветная колода: вся карта в цвет масти, знаки белые. */
+.pcard__face.is-filled {
+  color: #fff;
+  background:
+    radial-gradient(120% 80% at 30% 10%, rgb(255 255 255 / 0.22), transparent 60%),
+    linear-gradient(170deg, var(--suit), color-mix(in oklab, var(--suit) 78%, #000));
+}
+
+.pcard__face.is-filled::after {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 6%/4%;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28);
+  pointer-events: none;
+}
+
 .pcard__face.is-win {
   box-shadow:
     0 0 0 2px var(--lamp),

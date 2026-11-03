@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { memo } from 'react'
 import { PlayingCard } from '../components/PlayingCard'
 import { ChipStack } from '../components/Chips'
-import { chips } from '../lib/format'
+import { BLINDS_TIP, toggleBlinds, useMoney } from '../lib/money'
 import { useScene, type Banner as BannerData, type Flight } from '../store/scene'
 import { BOARD_CARD, DECK, HERO_CARD, POT, SMALL_CARD, boardSlot, shadowFor, type SeatPlace } from './geometry'
 
@@ -49,6 +49,7 @@ export const Board = memo(function Board({
 })
 
 export const Pot = memo(function Pot({ amount }: { amount: number }) {
+  const money = useMoney()
   return (
     <AnimatePresence>
       {amount > 0 && (
@@ -60,9 +61,9 @@ export const Pot = memo(function Pot({ amount }: { amount: number }) {
           exit={{ opacity: 0, transition: { duration: 0.2 } }}
         >
           <ChipStack amount={amount} size={30} />
-          <span className="pot__label">
-            Банк <span className="num">{chips(amount)}</span>
-          </span>
+          <button className="pot__label is-toggle" onClick={toggleBlinds} title={BLINDS_TIP}>
+            Банк <span className="num">{money(amount)}</span>
+          </button>
         </motion.div>
       )}
     </AnimatePresence>

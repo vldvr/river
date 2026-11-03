@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PlayerAction } from '../../../engine/index.ts'
 import { sound } from '../audio/sound'
-import { chips } from '../lib/format'
+import { useMoney } from '../lib/money'
 import { native } from '../lib/native'
 import { send } from '../net/connection'
 import { useApp } from '../store/app'
@@ -18,6 +18,9 @@ export function ActionBar() {
   const scenePot = useScene((s) => s.pot)
   const live = useScene((s) => s.live)
   const handNo = useScene((s) => s.handNo)
+  const preflopSizes = useApp((s) => s.settings.preflopSizes)
+  const postflopSizes = useApp((s) => s.settings.postflopSizes)
+  const money = useMoney()
 
   const heroSeat = view?.players.find((p) => p.id === you)?.seat ?? null
   const legal = view?.you.legal ?? null
@@ -44,17 +47,20 @@ export function ActionBar() {
 
   const presets = useMemo(() => {
     if (!legal || !hand) return []
+    const bb = view?.blinds.bb ?? 1
     const round = (x: number) => Math.round(x / step) * step
     const clamp = (x: number) => Math.max(legal.minTo, Math.min(legal.maxTo, x))
-    const make = (f: number) =>
-      clamp(round(legal.isBet ? potTotal * f : hand.currentBet + f * (potTotal + legal.toCall)))
-    return [
-      { label: '½ банка', to: make(0.5) },
-      { label: '¾ банка', to: make(0.75) },
-      { label: 'Банк', to: make(1) },
-      { label: 'Олл-ин', to: legal.maxTo },
-    ]
-  }, [legal, hand, potTotal, step])
+    const potPart = (f: number) => clamp(round(legal.isBet ? potTotal * f : hand.currentBet + f * (potTotal + legal.toCall)))
+    // Размеры в блайндах годятся, пока на префлопе никто не повышал; дальше считаем от банка.
+    const opening = hand.street === 'preflop' && hand.currentBet <= bb
+    const list = opening
+      ? preflopSizes.map((x) => ({ label: `${String(x).replace('.', ',')} BB`, to: clamp(round(x * bb)) }))
+      : postflopSizes.map((x) => ({ label: x === 100 ? 'Банк' : `${x}%`, to: potPart(x / 100) }))
+    // Одинаковые суммы (всё упёрлось в минимум или в стек) показываем один раз.
+    const seen = new Set<number>([legal.maxTo])
+    const out = list.filter((p) => !seen.has(p.to) && seen.add(p.to))
+    return [...out, { label: 'Олл-ин', to: legal.maxTo }]
+  }, [legal, hand, potTotal, step, view?.blinds.bb, preflopSizes, postflopSizes])
 
   useEffect(() => {
     if (myTurn && legal) setAmount(legal.minTo)
@@ -173,12 +179,12 @@ export function ActionBar() {
                 </button>
               ) : (
                 <button className="btn btn--lg act-btn" onClick={() => act({ type: 'call' })}>
-                  {legal.callAmount < legal.toCall ? 'Олл-ин' : 'Колл'} <span className="num">{chips(legal.callAmount)}</span>
+                  {legal.callAmount < legal.toCall ? 'Олл-ин' : 'Колл'} <span className="num">{money(legal.callAmount)}</span>
                 </button>
               )}
               {legal.canRaise && (
                 <button className="btn btn--lg btn--primary act-btn" onClick={() => act(raiseAction())}>
-                  {amount >= legal.maxTo ? 'Олл-ин' : legal.isBet ? 'Бет' : 'Рейз до'} <span className="num">{chips(amount)}</span>
+                  {amount >= legal.maxTo ? 'Олл-ин' : legal.isBet ? 'Бет' : 'Рейз до'} <span className="num">{money(amount)}</span>
                 </button>
               )}
             </div>

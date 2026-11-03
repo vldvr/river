@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { CardBack, TableView } from '../../../protocol/index.ts'
 import type { UpdateState } from '../../../preload/api'
-import { load, save } from '../lib/storage'
+import { load, loadRaw, save } from '../lib/storage'
 import { newRecoveryCode, randomToken } from '../lib/id'
 
 export const PLAYER_COLORS = ['#e0a458', '#d0705a', '#c98bb9', '#8f9ee0', '#5fb3c9', '#6fbf8b', '#b8c46a', '#a59d90']
@@ -25,16 +25,24 @@ export interface ProfileState {
 export type Felt = 'green' | 'blue' | 'wine' | 'graphite' | 'sea'
 export type Accent = 'amber' | 'ice' | 'rose'
 export type Speed = 'normal' | 'fast'
+/** Обычная колода, четыре цвета мастей или карты целиком в цвет масти. */
+export type Deck = 'classic' | 'four' | 'filled'
 
 export interface Settings {
   volume: number
   muted: boolean
   speed: Speed
-  fourColor: boolean
+  deck: Deck
   felt: Felt
   accent: Accent
   reduceMotion: boolean
   turnSound: boolean
+  /** Стеки, ставки и банк в больших блайндах вместо фишек. */
+  inBlinds: boolean
+  /** Быстрые ставки на префлопе, в больших блайндах. */
+  preflopSizes: number[]
+  /** Быстрые ставки после флопа, в процентах банка. */
+  postflopSizes: number[]
 }
 
 export type ConnState = 'idle' | 'connecting' | 'online' | 'reconnecting'
@@ -108,11 +116,22 @@ const defaultSettings: Settings = {
   volume: 0.7,
   muted: false,
   speed: 'normal',
-  fourColor: false,
+  deck: 'classic',
   felt: 'green',
   accent: 'amber',
   reduceMotion: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
   turnSound: true,
+  inBlinds: false,
+  preflopSizes: [2, 2.5, 3, 4],
+  postflopSizes: [33, 50, 75, 100],
+}
+
+function initialSettings(): Settings {
+  const s = load('settings', defaultSettings)
+  // До 1.6 была только галочка «четырёхцветная колода».
+  const old = loadRaw<{ fourColor?: boolean; deck?: Deck }>('settings')
+  if (old && !old.deck && old.fourColor) s.deck = 'four'
+  return s
 }
 
 function initialProfile(): ProfileState {
@@ -130,7 +149,7 @@ let logSeq = 0
 
 export const useApp = create<AppState>((set, get) => ({
   profile: initialProfile(),
-  settings: load('settings', defaultSettings),
+  settings: initialSettings(),
   screen: 'home',
   role: null,
   code: null,

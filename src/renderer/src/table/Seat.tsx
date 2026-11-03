@@ -6,7 +6,8 @@ import { Avatar } from '../components/Avatar'
 import { PlayingCard } from '../components/PlayingCard'
 import { ChipStack } from '../components/Chips'
 import { sound } from '../audio/sound'
-import { chips, plural } from '../lib/format'
+import { plural } from '../lib/format'
+import { BLINDS_TIP, toggleBlinds, useMoney } from '../lib/money'
 import type { SceneSeat } from '../store/scene'
 import { useApp } from '../store/app'
 import { HERO_CARD, SMALL_CARD, shadowFor, type SeatPlace } from './geometry'
@@ -41,6 +42,7 @@ interface SeatProps {
 }
 
 export const Seat = memo(function Seat({ place, player, avatar, seat, acting, turnEndsAt, turnTotal, winner, dealer }: SeatProps) {
+  const money = useMoney()
   const folded = seat?.folded ?? false
   const out = player.status === 'busted' || player.status === 'sittingOut' || player.status === 'left'
   const stack = seat ? seat.stack : player.stack
@@ -57,7 +59,7 @@ export const Seat = memo(function Seat({ place, player, avatar, seat, acting, tu
   let bubble: string | null = null
   if (label && label.kind !== 'post' && label.kind !== 'win') {
     bubble = LABEL[label.kind] ?? null
-    if ((label.kind === 'raise' || label.kind === 'bet') && label.amount) bubble += ` ${chips(label.amount)}`
+    if ((label.kind === 'raise' || label.kind === 'bet') && label.amount) bubble += ` ${money(label.amount)}`
   }
 
   return (
@@ -87,7 +89,13 @@ export const Seat = memo(function Seat({ place, player, avatar, seat, acting, tu
           {player.name}
           <span className="seat__rating num">Эло {player.rating}</span>
         </span>
-        <span className="seat__stack num">{status ?? (seat?.allIn ? 'Олл-ин' : chips(stack))}</span>
+        {place.hero && !status && !seat?.allIn ? (
+          <button className="seat__stack num is-toggle" onClick={toggleBlinds} title={BLINDS_TIP}>
+            {money(stack)}
+          </button>
+        ) : (
+          <span className="seat__stack num">{status ?? (seat?.allIn ? 'Олл-ин' : money(stack))}</span>
+        )}
         {player.buyIns > 1 && <span className="seat__reentry">{reentryLabel(player.buyIns - 1)}</span>}
       </div>
 
@@ -113,7 +121,7 @@ export const Seat = memo(function Seat({ place, player, avatar, seat, acting, tu
             exit={{ opacity: 0 }}
             transition={{ type: 'spring', stiffness: 420, damping: 24 }}
           >
-            +{chips(label.amount)}
+            +{money(label.amount)}
           </motion.div>
         )}
       </AnimatePresence>
@@ -208,6 +216,7 @@ export const SeatCards = memo(function SeatCards({
 })
 
 export const BetChips = memo(function BetChips({ place, amount }: { place: SeatPlace; amount: number }) {
+  const money = useMoney()
   return (
     <AnimatePresence>
       {amount > 0 && (
@@ -220,7 +229,9 @@ export const BetChips = memo(function BetChips({ place, amount }: { place: SeatP
           transition={{ duration: 0.15 }}
         >
           <ChipStack amount={amount} size={26} />
-          <span className="bet__amount num">{chips(amount)}</span>
+          <button className="bet__amount num is-toggle" onClick={toggleBlinds} title={BLINDS_TIP}>
+            {money(amount)}
+          </button>
         </motion.div>
       )}
     </AnimatePresence>

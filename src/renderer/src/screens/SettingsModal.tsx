@@ -1,11 +1,13 @@
 import { Lock } from '@phosphor-icons/react'
 import { Modal } from '../components/Modal'
-import { SuitIcon, suitColor } from '../components/PlayingCard'
+import { useEffect, useState } from 'react'
+import type { Card } from '../../../engine/index.ts'
+import { PlayingCard } from '../components/PlayingCard'
 import { Switch } from '../components/Switch'
 import { sound } from '../audio/sound'
 import { native } from '../lib/native'
 import { isOpen, UNLOCK_RULE, unlockHint, unlockLeft, type Unlock } from '../lib/cosmetics'
-import { useApp, type Accent, type Felt } from '../store/app'
+import { useApp, type Accent, type Deck, type Felt } from '../store/app'
 
 const FELTS: { id: Felt; name: string; color: string; unlock: Unlock }[] = [
   { id: 'green', name: 'Зелёное', color: '#2c7a5c', unlock: {} },
@@ -13,6 +15,11 @@ const FELTS: { id: Felt; name: string; color: string; unlock: Unlock }[] = [
   { id: 'wine', name: 'Бордовое', color: '#7b2d3c', unlock: {} },
   { id: 'graphite', name: 'Графит', color: '#55595b', unlock: { games: 5 } },
   { id: 'sea', name: 'Море', color: '#1f7e82', unlock: { rating: 1100 } },
+]
+const DECKS: { id: Deck; name: string; hint: string }[] = [
+  { id: 'classic', name: 'Обычная', hint: 'Червы и бубны красные, пики и трефы чёрные' },
+  { id: 'four', name: 'Четыре цвета', hint: 'Бубны синие, трефы зелёные: масти не спутать' },
+  { id: 'filled', name: 'Цветные карты', hint: 'Вся карта в цвет масти' },
 ]
 const ACCENTS: { id: Accent; name: string; color: string }[] = [
   { id: 'amber', name: 'Янтарь', color: '#f0b357' },
@@ -76,17 +83,28 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
         <Switch checked={s.reduceMotion} onChange={(v) => set({ reduceMotion: v })} label="Меньше движения" />
       </div>
 
-      <div className="row">
-        <div className="row__text">
-          <span>Четырёхцветная колода</span>
-          <span className="row__hint">Бубны синие, трефы зелёные: масти не спутать</span>
-        </div>
-        <div className="settings__suits">
-          {['s', 'h', 'd', 'c'].map((x) => (
-            <SuitIcon key={x} suit={x} size={18} color={suitColor(x, s.fourColor)} />
+      <div className="field">
+        <span className="field__label">Колода</span>
+        <div className="segmented">
+          {DECKS.map((d) => (
+            <button key={d.id} aria-pressed={s.deck === d.id} onClick={() => set({ deck: d.id })}>
+              {d.name}
+            </button>
           ))}
-          <Switch checked={s.fourColor} onChange={(v) => set({ fourColor: v })} label="Четырёхцветная колода" />
         </div>
+        <div className="settings__deck">
+          {['s', 'h', 'd', 'c'].map((x) => (
+            <PlayingCard key={x} card={`A${x}` as Card} w={34} h={48} shadow={{ x: 0, y: 2 }} />
+          ))}
+          <span className="row__hint">{DECKS.find((d) => d.id === s.deck)?.hint}</span>
+        </div>
+      </div>
+
+      <div className="field">
+        <span className="field__label">Быстрые ставки</span>
+        <SizesInput label="Префлоп, BB" value={s.preflopSizes} max={100} onChange={(v) => set({ preflopSizes: v })} />
+        <SizesInput label="Постфлоп, % банка" value={s.postflopSizes} max={1000} onChange={(v) => set({ postflopSizes: v })} />
+        <span className="row__hint">До четырёх чисел через пробел. Щелчок по своему стеку, ставке или банку показывает суммы в больших блайндах.</span>
       </div>
 
       <div className="field">
@@ -145,5 +163,39 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
         )}
       </div>
     </Modal>
+  )
+}
+
+/** Список размеров ставок одной строкой: «2 2,5 3 4». Неверное значение откатывается при уходе с поля. */
+function SizesInput({ label, value, max, onChange }: { label: string; value: number[]; max: number; onChange(v: number[]): void }) {
+  const show = (v: number[]) => v.map((x) => String(x).replace('.', ',')).join(' ')
+  const [text, setText] = useState(show(value))
+  useEffect(() => setText(show(value)), [value])
+
+  function commit() {
+    const parsed = text
+      .split(/[\s;]+/)
+      .map((x) => Number(x.replace(',', '.')))
+      .filter((x) => Number.isFinite(x) && x > 0 && x <= max)
+      .map((x) => Math.round(x * 10) / 10)
+    const uniq = [...new Set(parsed)].sort((a, b) => a - b).slice(0, 4)
+    if (uniq.length > 0) onChange(uniq)
+    else setText(show(value))
+  }
+
+  return (
+    <label className="row settings__sizes">
+      <span>{label}</span>
+      <input
+        className="input num"
+        type="text"
+        inputMode="decimal"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        aria-label={label}
+      />
+    </label>
   )
 }

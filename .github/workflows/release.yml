@@ -81,12 +81,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Собрать dmg
+      - name: Собрать dmg и zip
         run: |
           rm -rf release
           npx electron-builder --mac --publish never
       - name: Загрузить артефакты в релиз
-        run: gh release upload "$TAG" release/*.dmg --clobber
+        run: gh release upload "$TAG" release/*.dmg release/*-mac-*.zip --clobber
 
   publish:
     needs: [windows, mac]

@@ -35,11 +35,14 @@ mac:
   # Подписи Apple нет: подписываем ad-hoc, иначе на Apple Silicon macOS называет приложение повреждённым.
   identity: '-'
   hardenedRuntime: false
+  # zip нужен для самообновления: приложение качает его и подменяет River.app (см. src/main/updater.ts).
+  artifactName: River-${version}-mac-${arch}.${ext}
   target:
     - target: dmg
       arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
 dmg:
-  artifactName: River-${version}-mac-${arch}.${ext}
   title: Ривер
 portable:
   artifactName: River-${version}-portable.${ext}
