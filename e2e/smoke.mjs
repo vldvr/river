@@ -33,6 +33,12 @@ try {
     localStorage.setItem('river.profile', JSON.stringify({ name: 'Смоук', color: '#e0a458', avatar: null, token: '' }))
   })
   await win.reload()
+  // Игрок с именем, но без запомненной версии считается обновившимся: ему показывают «Что нового».
+  await win.waitForSelector('.notes', { timeout: 20_000 })
+  await win.waitForTimeout(900) // окно и пункты появляются с анимацией
+  await win.screenshot({ path: resolve(out, '0-whats-new.png') })
+  await win.click('.notes__foot button')
+  await win.waitForSelector('.notes', { state: 'detached', timeout: 5_000 })
   await win.waitForSelector('text=Создать игру', { timeout: 20_000 })
   console.log('версия:', await win.textContent('.home__foot'))
   await win.screenshot({ path: resolve(out, '1-home.png') })
