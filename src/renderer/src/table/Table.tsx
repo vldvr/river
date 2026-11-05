@@ -1,9 +1,12 @@
+import { AnimatePresence } from 'motion/react'
 import { useMemo } from 'react'
 import { partialHandName } from '../../../engine/index.ts'
 import { placesFor } from '../choreo/choreographer'
 import { useApp } from '../store/app'
 import { useScene } from '../store/scene'
+import { EquityBadge, RabbitButton, RabbitCaption, useEquity } from './Drama'
 import { Felt } from './Felt'
+import { equityAnchor } from './geometry'
 import { BetChips, Seat, SeatCards } from './Seat'
 import { Stage } from './Stage'
 import { Board, DealerButton, Flights, Pot, ResultBanner } from './TableParts'
@@ -17,6 +20,7 @@ export function Table() {
   const scene = useScene()
 
   const places = useMemo(() => placesFor(view, you), [view, you])
+  const odds = useEquity(scene)
   if (!view) return null
 
   const heroSeat = view.players.find((p) => p.id === you)?.seat ?? null
@@ -31,7 +35,9 @@ export function Table() {
   return (
     <Stage>
       <Felt focus={focus} calm={reduceMotion} />
-      <Board cards={scene.board} epoch={scene.epoch} best={scene.best} showdown={showdown} />
+      <Board cards={scene.board} epoch={scene.epoch} best={scene.best} showdown={showdown} rabbit={scene.rabbit?.cards ?? null} />
+      <RabbitCaption view={view} scene={scene} />
+      <RabbitButton view={view} scene={scene} />
       <Pot amount={scene.pot} />
       <DealerButton place={buttonPlace} />
 
@@ -65,6 +71,17 @@ export function Table() {
           />
         )
       })}
+
+      <AnimatePresence>
+        {odds &&
+          [...odds].map(([seat, value]) => {
+            const place = places.get(seat)
+            if (!place) return null
+            const lead = Math.max(...odds.values())
+            const name = view.players.find((p) => p.seat === seat)?.name ?? ''
+            return <EquityBadge key={`eq-${seat}-${scene.handNo}`} at={equityAnchor(place)} value={value} leader={value === lead && value > 0} name={name} />
+          })}
+      </AnimatePresence>
 
       {hint && heroSeat !== null && (
         <div className="hero-hint" key={hint}>

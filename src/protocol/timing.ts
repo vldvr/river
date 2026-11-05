@@ -24,6 +24,7 @@ export const T = {
   end: 500,
   bust: 900,
   show: 700,
+  rabbit: 900,
   bjRound: 500,
   bjBet: 320,
   bjCard: 340,
@@ -35,6 +36,9 @@ export const T = {
 
 /** Пауза между раздачами, чтобы рассмотреть итог. */
 export const BETWEEN_HANDS_MS = 2600
+
+/** Сколько ждать следующей раздачи после «кролика», чтобы его успели рассмотреть. */
+export const RABBIT_HOLD_MS = T.rabbit + 2200
 
 export function eventDuration(e: ViewEvent, revealed: boolean): number {
   switch (e.t) {
@@ -64,6 +68,8 @@ export function eventDuration(e: ViewEvent, revealed: boolean): number {
       return T.bust
     case 'show':
       return T.show
+    case 'rabbit':
+      return T.rabbit
     case 'bj_round':
       return T.bjRound
     case 'bj_bet':

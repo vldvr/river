@@ -78,6 +78,8 @@ export const clientMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('sit'), out: z.boolean() }),
   z.object({ t: z.literal('rebuy') }),
   z.object({ t: z.literal('show') }),
+  /** Показать «кролика»: остаток доски раздачи, которая кончилась раньше ривера. */
+  z.object({ t: z.literal('rabbit'), handNo: z.number().int() }),
   z.object({ t: z.literal('leave') }),
   z.object({ t: z.literal('ping'), ts: z.number(), rtt: z.number().min(0).max(60_000).nullable() }),
   // Только хост:

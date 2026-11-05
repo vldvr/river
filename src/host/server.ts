@@ -29,6 +29,7 @@ import {
   leave,
   legalFor,
   nextLevelAt,
+  rabbitCards,
   rebuy,
   seatedPlayers,
   setSittingOut,
@@ -48,6 +49,8 @@ import {
   MAX_MEMBERS,
   parseClientMessage,
   PROTOCOL_VERSION,
+  RABBIT_HOLD_MS,
+  type AwardView,
   type ClientMessage,
   type BjView,
   type HandView,
@@ -57,6 +60,7 @@ import {
   type TableView,
   type ViewEvent,
 } from '../protocol/index.ts'
+import { computeAwards, newStats, trackStats, trackThink, type GameStats } from './awards.ts'
 import { botDecision, BOT_NAMES } from './bot.ts'
 import { realScheduler, type Scheduler } from './scheduler.ts'
 
@@ -135,6 +139,9 @@ export interface HostSnapshot {
   ending?: boolean
   accounts?: [string, Account][]
   rated?: RatedGame | null
+  rabbit?: { cards: Card[]; by: string } | null
+  stats?: GameStats
+  awards?: AwardView[]
   savedAt: number
 }
 
@@ -197,6 +204,11 @@ export class HostServer {
   private showdown: ShowdownHand[] | null = null
   private winners: number[] = []
   private lastActions = new Map<number, LastAction>()
+  /** «Кролик» закончившейся раздачи, если его уже попросили. */
+  private rabbit: { cards: Card[]; by: string } | null = null
+  /** Статистика партии для номинаций и сами номинации, когда партия закончилась. */
+  private stats: GameStats = newStats()
+  private awards: AwardView[] = []
 
   constructor(opts: HostOptions) {
     this.code = opts.code
@@ -229,6 +241,9 @@ export class HostServer {
       this.accounts = new Map(r.accounts ?? [])
       this.rated = r.rated ?? null
       this.ending = r.ending ?? false
+      this.rabbit = r.rabbit ?? null
+      this.stats = r.stats ?? newStats()
+      this.awards = r.awards ?? []
       for (const m of r.members) {
         this.members.set(m.id, { ...m, rating: m.rating ?? 1000, ratingGames: m.ratingGames ?? 0, back: m.back ?? 'classic', lastReact: 0, link: null })
       }
@@ -428,6 +443,8 @@ export class HostServer {
         return
       case 'show':
         return this.onShow(m)
+      case 'rabbit':
+        return this.onRabbit(m, msg.handNo)
       case 'leave':
         return this.onLeave(m)
       case 'account':
@@ -532,6 +549,7 @@ export class HostServer {
     if (!h || h.done || h.handNo !== handNo || this.paused) return
     if (h.toAct !== this.seatOf(m.id)) return
     m.missed = 0
+    if (this.turn && !m.isBot) trackThink(this.stats, m.id, this.sched.now() - this.turn.startsAt)
     this.act(m, action, [])
   }
 
@@ -550,6 +568,21 @@ export class HostServer {
     if (h.revealed && !hp.folded) return
     this.shown.add(hp.seat)
     this.broadcastEvents([{ t: 'show', seat: hp.seat, cards: [...hp.hole] }])
+  }
+
+  /** Остаток доски раздачи, которая кончилась раньше ривера. Смотреть может любой за столом, один раз за раздачу. */
+  private onRabbit(m: Member, handNo: number) {
+    const h = this.game.hand
+    if (this.isBj || this.phase !== 'playing' || !h || !h.done || h.handNo !== handNo || this.rabbit) return
+    const cards = rabbitCards(h)
+    if (!cards.length) return
+    this.rabbit = { cards, by: m.id }
+    // Следующая раздача подождёт, чтобы карты успели рассмотреть.
+    if (this.nextHandTimer !== null && this.nextHandAt !== null && this.nextHandAt - this.sched.now() < RABBIT_HOLD_MS) {
+      this.scheduleNextHand(RABBIT_HOLD_MS)
+    }
+    this.broadcastEvents([{ t: 'rabbit', by: m.id, cards }])
+    this.save()
   }
 
   /** Хост заканчивает партию. Начатую раздачу доигрываем, чтобы банк ушёл честно. */
@@ -667,6 +700,8 @@ export class HostServer {
     this.game = createGame(config)
     this.phase = 'lobby'
     this.resetHandTrackers()
+    this.stats = newStats()
+    this.awards = []
     for (const m of this.members.values()) {
       m.missed = 0
       this.trySeat(m)
@@ -722,6 +757,7 @@ export class HostServer {
   }
 
   private track(events: ViewEvent[]) {
+    trackStats(this.stats, events)
     for (const e of events) {
       switch (e.t) {
         case 'start':
@@ -751,6 +787,7 @@ export class HostServer {
     this.showdown = null
     this.winners = []
     this.lastActions.clear()
+    this.rabbit = null
   }
 
   private setupTurn(seat: number, delay: number) {
@@ -886,6 +923,12 @@ export class HostServer {
     }
     this.game.finished = true
     this.ending = false
+    this.awards = this.isBj
+      ? []
+      : computeAwards(
+          this.stats,
+          this.game.players.map((p) => ({ id: p.id, name: p.name, color: this.members.get(p.id)?.color ?? '#a59d90', isBot: p.isBot })),
+        )
     this.reportRating(true)
     this.phase = 'finished'
     this.turn = null
@@ -1201,6 +1244,7 @@ export class HostServer {
         done: h.done,
         showdown: this.showdown,
         winners: [...this.winners],
+        rabbit: h.done ? this.rabbit : null,
       }
     }
 
@@ -1243,6 +1287,7 @@ export class HostServer {
         rating: p.rating,
         ratingDelta: p.ratingDelta,
       })),
+      awards: this.phase === 'finished' ? this.awards : [],
       you: {
         id: m.id,
         spectator,
@@ -1274,6 +1319,9 @@ export class HostServer {
       lastActions: [...this.lastActions],
       accounts: [...this.accounts],
       rated: this.rated,
+      rabbit: this.rabbit,
+      stats: this.stats,
+      awards: this.awards,
       savedAt: this.sched.now(),
     }
   }

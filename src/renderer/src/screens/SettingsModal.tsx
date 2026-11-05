@@ -150,6 +150,15 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
         <span>
           Ривер <span className="num">{version}</span>
         </span>
+        <button
+          className="btn btn--sm"
+          onClick={() => {
+            onClose()
+            useApp.setState({ notes: { seen: null, all: true } })
+          }}
+        >
+          Что нового
+        </button>
         {update.state === 'ready' && (
           <button className="btn btn--sm btn--primary" onClick={() => native?.update.install()}>
             Обновить до {update.version}

@@ -89,6 +89,18 @@ export function seatPlaces(seats: number[], heroSeat: number | null): Map<number
   return out
 }
 
+/**
+ * Где показывать шансы руки: у своих карт справа, у соседа сбоку от карт,
+ * с той стороны, где нет фишки дилера (она лежит по другую руку).
+ */
+export function equityAnchor(place: SeatPlace): Pt {
+  if (place.hero) return { x: 942, y: 704 }
+  const to = { x: CENTER.x - place.pos.x, y: CENTER.y - place.pos.y }
+  const len = Math.hypot(to.x, to.y) || 1
+  const side = { x: -to.y / len, y: to.x / len }
+  return { x: place.cards.x - side.x * 80, y: place.cards.y - side.y * 64 }
+}
+
 export function boardSlot(i: number): Pt {
   const total = 5 * BOARD_CARD.w + 4 * BOARD_CARD.gap
   const x0 = CENTER.x - total / 2 + BOARD_CARD.w / 2

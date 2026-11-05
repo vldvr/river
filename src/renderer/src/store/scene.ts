@@ -56,6 +56,8 @@ export interface Scene {
   winners: number[]
   best: Card[] | null
   banner: Banner | null
+  /** «Кролик»: остаток доски после раздачи и кто его попросил. */
+  rabbit: { cards: Card[]; by: string } | null
   flights: Flight[]
   /** Номер «поколения» раздачи: меняется, когда сцена пересобрана целиком. */
   epoch: number
@@ -82,6 +84,7 @@ const empty: Scene = {
   winners: [],
   best: null,
   banner: null,
+  rabbit: null,
   flights: [],
   epoch: 0,
 }
@@ -147,6 +150,7 @@ export function sceneFromView(view: TableView, prev: Scene): Partial<Scene> {
     winners: [...h.winners],
     best: winnerBest,
     banner: h.done && sameHand ? prev.banner : null,
+    rabbit: h.done && h.rabbit ? { cards: [...h.rabbit.cards], by: h.rabbit.by } : null,
     epoch: sameHand ? prev.epoch : prev.epoch + 1,
   }
 }

@@ -35,8 +35,14 @@ jobs:
             echo "package.json version ($PKG_VERSION) does not match tag ($TAG)"
             exit 1
           }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Патчноут обязателен: без записи в src/renderer/src/changelog.ts скрипт падает и релиз не выходит.
+      - name: Патчноут
+        run: node --experimental-strip-types tools/release-notes.mjs "$TAG" > "$RUNNER_TEMP/notes.md"
       - name: Черновик релиза
-        run: gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "Ривер $TAG" --notes-file .github/release-notes.md
+        run: gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "Ривер $TAG" --notes-file "$RUNNER_TEMP/notes.md"
 
   windows:
     needs: draft

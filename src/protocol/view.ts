@@ -62,6 +62,31 @@ export interface HandView {
   done: boolean
   showdown: ShowdownHand[] | null
   winners: number[]
+  /**
+   * «Кролик»: карты, которые легли бы на стол, и кто попросил их показать.
+   * null: ещё не смотрели. Поля нет: старый хост, который так не умеет.
+   */
+  rabbit?: { cards: Card[]; by: string } | null
+}
+
+/** Номинации в итогах партии. */
+export type AwardKind = 'badBeat' | 'suckout' | 'bestHand' | 'bigPot' | 'allins' | 'aggro' | 'loose' | 'tight' | 'thinker'
+
+export interface AwardView {
+  kind: AwardKind
+  id: string
+  name: string
+  color: string
+  /**
+   * badBeat, suckout: шансы в момент олл-ина (0..1); bigPot: размер банка; allins, aggro: сколько раз;
+   * loose, tight: доля сыгранных раздач (0..1); thinker: среднее время на ход, мс; bestHand: 0.
+   */
+  value: number
+  /** bigPot: тот же банк в больших блайндах. */
+  bb: number | null
+  /** bestHand: название руки. */
+  hand: string | null
+  handNo: number | null
 }
 
 export interface BjHandView {
@@ -119,6 +144,8 @@ export interface TableView {
   nextHandInMs: number | null
   /** Итоги: места турнира или плюс/минус в кэше, включая ушедших. */
   results: { id: string; name: string; color: string; place: number | null; net: number; buyIns: number; rating: number; ratingDelta: number }[]
+  /** Номинации, когда партия закончилась. Поля нет: старый хост. */
+  awards?: AwardView[]
   you: {
     id: string
     /** Видит чужие карты как зритель. */
@@ -141,5 +168,7 @@ export type ViewEvent =
   | { t: 'bj_turn'; seat: number; hand: number; totalMs: number }
   | { t: 'timeout'; seat: number }
   | { t: 'show'; seat: number; cards: Card[] }
+  /** Кто-то посмотрел «кролика»: остаток доски после раздачи. */
+  | { t: 'rabbit'; by: string; cards: Card[] }
   | { t: 'joined'; id: string; name: string }
   | { t: 'left'; id: string; name: string }

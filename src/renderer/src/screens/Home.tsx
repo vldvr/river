@@ -134,7 +134,9 @@ export function Home() {
       </main>
 
       <footer className="home__foot">
-        <span className="num">Ривер {version}</span>
+        <button className="home__version" onClick={() => useApp.setState({ notes: { seen: null, all: true } })} title="Что нового">
+          Ривер <span className="num">{version}</span>
+        </button>
         {update.state === 'ready' && <span className="home__update">Готово обновление {update.version}: откроется после перезапуска</span>}
         {update.state === 'available' && <span className="home__update">Вышла версия {update.version}</span>}
       </footer>

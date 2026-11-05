@@ -93,6 +93,8 @@ interface AppState {
   toasts: Toast[]
   update: UpdateState
   appVersion: string
+  /** Окно патчноутов: что игрок уже видел, или весь список из настроек. */
+  notes: { seen: string | null; all: boolean } | null
   setProfile(p: Partial<ProfileState>): void
   setSettings(s: Partial<Settings>): void
   toast(text: string, tone?: Toast['tone']): void
@@ -168,6 +170,7 @@ export const useApp = create<AppState>((set, get) => ({
   toasts: [],
   update: { state: 'idle' },
   appVersion: '0.0.0',
+  notes: null,
   setProfile(p) {
     const profile = { ...get().profile, ...p }
     save('profile', profile)

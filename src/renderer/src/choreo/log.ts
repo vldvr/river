@@ -63,6 +63,11 @@ export function logEvent(e: ViewEvent, view: TableView) {
     case 'show':
       push(hand, `${name(view, e.seat)} показывает ${e.cards.map(cardText).join(' ')}`)
       return
+    case 'rabbit': {
+      const who = view.players.find((p) => p.id === e.by)?.name ?? 'Кто-то'
+      push(hand, `Кролик (${who}): ${e.cards.map(cardText).join(' ')}`)
+      return
+    }
     case 'bj_round':
       hand = e.roundNo
       seatIds = new Map(view.players.filter((p) => p.seat !== null).map((p) => [p.seat!, p.id]))

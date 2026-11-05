@@ -22,6 +22,15 @@ export function plural(n: number, one: string, few: string, many: string): strin
   return many
 }
 
+/** Шансы руки: «64%», без ложных 0% и 100%, пока исход не решён. */
+export function formatEquity(v: number): string {
+  if (v <= 0) return '0%'
+  if (v >= 1) return '100%'
+  if (v < 0.005) return '<1%'
+  if (v > 0.995) return '>99%'
+  return `${Math.round(v * 100)}%`
+}
+
 export function formatCode(code: string): string {
   return code.length === 6 ? `${code.slice(0, 3)}${NBSP}${code.slice(3)}` : code
 }

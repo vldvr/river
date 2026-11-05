@@ -464,6 +464,28 @@ function awardUncontested(h: HandState, winner: HandPlayer, events: HandEvent[])
   finish(h, events)
 }
 
+/**
+ * «Кролик»: какие карты легли бы на стол, если бы раздачу доиграли до ривера.
+ * Те же сжигания и та же колода, что были бы на самом деле. Состояние не меняет.
+ */
+export function rabbitCards(h: HandState): Card[] {
+  if (!h.done || h.board.length >= 5) return []
+  const deck = [...h.deck]
+  const out: Card[] = []
+  let len = h.board.length
+  while (len < 5) {
+    deck.shift() // сжигаем
+    const count = len === 0 ? 3 : 1
+    for (let i = 0; i < count; i++) {
+      const c = deck.shift()
+      if (!c) return out
+      out.push(c)
+    }
+    len += count
+  }
+  return out
+}
+
 function finish(h: HandState, events: HandEvent[]) {
   h.done = true
   h.toAct = null

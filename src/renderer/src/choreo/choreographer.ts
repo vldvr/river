@@ -147,6 +147,7 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
         winners: [],
         best: null,
         banner: null,
+        rabbit: null,
         flights: [],
         epoch: S.epoch + 1,
       })
@@ -357,6 +358,14 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
       S.patchSeat(e.seat, { cards: [...e.cards] })
       sound.play('place', { volume: 0.6 })
       await wait(T.show * k, gen)
+      return
+    }
+
+    case 'rabbit': {
+      S.set({ rabbit: { cards: [...e.cards], by: e.by } })
+      sound.play('shove', { volume: 0.45 })
+      e.cards.forEach((_, i) => sound.play('place', { volume: 0.45, delay: (260 + i * 130) * k }))
+      await wait(T.rabbit * k, gen)
       return
     }
 

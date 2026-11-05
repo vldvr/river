@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { seededRandomInt, DEFAULT_CONFIG, type GameConfig } from '../engine/index.ts'
-import { PROTOCOL_VERSION, type ClientTransport, type HostMessage, type TableView } from '../protocol/index.ts'
+import { PROTOCOL_VERSION, RABBIT_HOLD_MS, type ClientTransport, type HostMessage, type TableView } from '../protocol/index.ts'
 import { HostServer, type HostSnapshot, type RatingReport, type RatingService } from './server.ts'
 import { ManualScheduler } from './scheduler.ts'
 import { loopback } from './loopback.ts'
@@ -145,6 +145,73 @@ describe('HostServer', () => {
     const places = host.view!.results.map((r) => r.place).sort()
     expect(places).toEqual([1, 2, 3, 4, 5])
     expect(H.server.state.game.handNo).toBeGreaterThan(3)
+  })
+
+  it('hands out awards when the game is over, only for people at the table', () => {
+    const H = harness({ startingStack: 400, levelMinutes: 2 }, 42)
+    const host = H.connect('Хост', 'host-token-0000000000')
+    H.connect('Аня', 'token-anya-000000000')
+    host.t.send({ t: 'addBot' })
+    host.t.send({ t: 'start' })
+    H.flush()
+    let guard = 0
+    while (H.server.state.phase !== 'finished' && guard++ < 200_000) {
+      expect(host.view!.awards).toEqual([])
+      H.tick(300)
+    }
+    const awards = host.view!.awards!
+    const ids = new Set(host.view!.results.map((r) => r.id))
+    expect(awards.length).toBeGreaterThan(0)
+    expect(new Set(awards.map((a) => a.kind)).size).toBe(awards.length)
+    for (const a of awards) expect(ids.has(a.id)).toBe(true)
+    // Новая партия начинается без старых номинаций.
+    host.t.send({ t: 'again' })
+    H.flush()
+    expect(host.view!.awards).toEqual([])
+  })
+
+  it('shows the rabbit once per hand to everyone and holds the next hand for it', () => {
+    const H = harness({ format: 'cash' }, 3)
+    const host = H.connect('Хост', 'host-token-0000000000', false)
+    const guest = H.connect('Гость', 'token-guest-00000000', false)
+    host.t.send({ t: 'start' })
+    H.flush()
+    // Первый, кому выпал ход, сразу сбрасывает: раздача кончается без флопа.
+    let guard = 0
+    while (!host.view?.you.legal && !guest.view?.you.legal && guard++ < 100) H.tick(250)
+    const first = host.view!.you.legal ? host : guest
+    first.t.send({ t: 'action', handNo: first.view!.hand!.handNo, action: { type: 'fold' } })
+    H.flush()
+    const hand = host.view!.hand!
+    expect(hand.done).toBe(true)
+    expect(hand.board).toEqual([])
+    expect(hand.rabbit).toBeNull()
+    // Просят под самый конец паузы: следующая раздача должна подождать.
+    H.sched.advance(host.view!.nextHandInMs! - 300)
+    H.flush()
+    guest.t.send({ t: 'rabbit', handNo: hand.handNo })
+    H.flush()
+    const ev = host.inbox.flatMap((m) => (m.t === 'events' ? m.events : [])).find((e) => e.t === 'rabbit')
+    expect(ev).toMatchObject({ t: 'rabbit', by: guest.id })
+    const cards = (ev as { cards: string[] }).cards
+    expect(cards).toHaveLength(5 - hand.board.length)
+    expect(guest.view!.hand!.rabbit).toEqual({ cards, by: guest.id })
+    expect(host.view!.nextHandInMs!).toBe(RABBIT_HOLD_MS)
+    // Ни одна карта «кролика» не лежит у кого-то в руке и не повторяет доску.
+    const used = new Set([...hand.board, ...H.server.state.game.hand!.players.flatMap((p) => p.hole)])
+    for (const c of cards) expect(used.has(c)).toBe(false)
+
+    // Второй раз не показывается, и чужую раздачу не открыть.
+    const count = host.inbox.length
+    host.t.send({ t: 'rabbit', handNo: hand.handNo })
+    host.t.send({ t: 'rabbit', handNo: hand.handNo + 5 })
+    H.flush()
+    expect(host.inbox.slice(count).some((m) => m.t === 'events' && m.events.some((e) => e.t === 'rabbit'))).toBe(false)
+
+    // В следующей раздаче «кролика» уже нет.
+    guard = 0
+    while (host.view!.hand!.handNo === hand.handNo && guard++ < 1000) H.tick(250)
+    expect(host.view!.hand!.rabbit).toBeNull()
   })
 
   it('auto-folds a player who does not act and sits them out after two misses', () => {

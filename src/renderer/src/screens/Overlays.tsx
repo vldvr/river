@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { Trophy } from '@phosphor-icons/react'
-import type { TableView } from '../../../protocol/index.ts'
-import { chips, signedChips } from '../lib/format'
+import { Clover, Coins, Crown, Fire, Fish, HeartBreak, HourglassMedium, Mountains, Sword, Trophy, type Icon } from '@phosphor-icons/react'
+import type { AwardKind, AwardView, TableView } from '../../../protocol/index.ts'
+import { chips, formatEquity, plural, signedChips } from '../lib/format'
 import { isHost, leaveGame, send } from '../net/connection'
 import { useApp } from '../store/app'
 import { useScene } from '../store/scene'
@@ -20,8 +20,9 @@ export function Results({ view }: { view: TableView }) {
     tournament ? (a.place ?? 99) - (b.place ?? 99) : b.net - a.net,
   )
   const winner = tournament ? rows.find((r) => r.place === 1) : null
+  const awards = view.awards ?? []
   return (
-    <motion.div className="results panel" {...fade}>
+    <motion.div className={`results panel ${awards.length ? 'has-awards' : ''}`} {...fade}>
       {winner ? (
         <div className="results__head">
           <Trophy size={40} weight="fill" className="results__trophy" />
@@ -48,6 +49,7 @@ export function Results({ view }: { view: TableView }) {
           </li>
         ))}
       </ol>
+      {awards.length > 0 && <Awards awards={awards} />}
       {host ? (
         <div className="results__actions">
           <button className="btn btn--lg" onClick={() => leaveGame()}>
@@ -61,6 +63,56 @@ export function Results({ view }: { view: TableView }) {
         <p className="results__wait">Хост может начать новую партию</p>
       )}
     </motion.div>
+  )
+}
+
+const AWARD: Record<AwardKind, { title: string; icon: Icon; detail(a: AwardView): string }> = {
+  badBeat: { title: 'Бэд-бит', icon: HeartBreak, detail: (a) => `Проиграл с ${formatEquity(a.value)} в раздаче ${a.handNo}` },
+  suckout: { title: 'Везунчик', icon: Clover, detail: (a) => `Выиграл с ${formatEquity(a.value)} в раздаче ${a.handNo}` },
+  bestHand: { title: 'Лучшая рука', icon: Crown, detail: (a) => `${a.hand}, раздача ${a.handNo}` },
+  bigPot: { title: 'Самый большой банк', icon: Coins, detail: (a) => `${chips(a.value)} · ${a.bb} BB, раздача ${a.handNo}` },
+  allins: { title: 'Всё или ничего', icon: Fire, detail: (a) => `Олл-ин ${a.value} ${plural(a.value, 'раз', 'раза', 'раз')}` },
+  aggro: { title: 'Агрессор', icon: Sword, detail: (a) => `${a.value} ${plural(a.value, 'бет или рейз', 'бета или рейза', 'бетов и рейзов')}` },
+  loose: { title: 'Не может сбросить', icon: Fish, detail: (a) => `Играл ${Math.round(a.value * 100)}% раздач` },
+  tight: { title: 'Скала', icon: Mountains, detail: (a) => `Играл всего ${Math.round(a.value * 100)}% раздач` },
+  thinker: { title: 'Мыслитель', icon: HourglassMedium, detail: (a) => `В среднем ${Math.round(a.value / 1000)} с на ход` },
+}
+
+/** Номинации партии: кто чем запомнился. */
+function Awards({ awards }: { awards: AwardView[] }) {
+  const reduce = useApp((s) => s.settings.reduceMotion)
+  return (
+    <section className="awards" aria-label="Номинации">
+      <h3 className="awards__title">Номинации</h3>
+      <ul className="awards__grid">
+        {awards.map((a, i) => {
+          const info = AWARD[a.kind]
+          if (!info) return null
+          const Glyph = info.icon
+          return (
+            <motion.li
+              key={a.kind}
+              className={`award award--${a.kind}`}
+              initial={{ opacity: 0, y: reduce ? 0 : 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.25 + i * 0.09, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <span className="award__icon" aria-hidden="true">
+                <Glyph size={22} weight="duotone" />
+              </span>
+              <span className="award__text">
+                <span className="award__kind">{info.title}</span>
+                <span className="award__name">
+                  <span className="award__dot" style={{ background: a.color }} />
+                  {a.name}
+                </span>
+                <span className="award__detail">{info.detail(a)}</span>
+              </span>
+            </motion.li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

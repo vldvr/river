@@ -11,11 +11,14 @@ export const Board = memo(function Board({
   epoch,
   best,
   showdown,
+  rabbit,
 }: {
   cards: string[]
   epoch: number
   best: string[] | null
   showdown: boolean
+  /** «Кролик»: карты, которые легли бы дальше. Рисуются бледнее настоящих. */
+  rabbit?: string[] | null
 }) {
   // Новые карты одной улицы переворачиваются каскадом.
   const streetStart = cards.length <= 3 ? 0 : cards.length - 1
@@ -40,6 +43,20 @@ export const Board = memo(function Board({
               shadow={shadowFor(p, 8)}
               win={showdown && inBest}
               dim={showdown && !!best && !inBest}
+            />
+          </div>
+        )
+      })}
+      {rabbit?.map((c, i) => {
+        const p = boardSlot(cards.length + i)
+        return (
+          <div key={`${epoch}-rabbit-${c}`} className="board__card is-rabbit" style={{ left: p.x, top: p.y }}>
+            <PlayingCard
+              card={c}
+              w={BOARD_CARD.w}
+              h={BOARD_CARD.h}
+              flipIn={{ delay: i * 0.13, from: { x: DECK.x - p.x, y: DECK.y - p.y } }}
+              shadow={shadowFor(p, 5)}
             />
           </div>
         )

@@ -644,3 +644,161 @@
   outline: 2px solid var(--lamp);
   outline-offset: 2px;
 }
+
+/* ── Шансы при олл-ине и у зрителей ── */
+
+.equity-anchor {
+  position: absolute;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.equity {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  display: grid;
+  gap: 4px;
+  min-width: 66px;
+  padding: 5px 11px 7px;
+  border-radius: 11px;
+  background: rgb(10 14 12 / 0.86);
+  border: 1px solid rgb(237 231 220 / 0.14);
+  box-shadow: 0 8px 18px -6px rgb(0 0 0 / 0.7);
+  text-align: center;
+}
+
+.equity__value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.equity__value > span {
+  display: inline-block;
+}
+
+.equity__bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(237 231 220 / 0.12);
+  overflow: hidden;
+}
+
+.equity__bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+  transform-origin: left center;
+  transition: transform 500ms var(--ease);
+}
+
+.equity.is-leader {
+  border-color: var(--lamp-40);
+  box-shadow:
+    0 8px 18px -6px rgb(0 0 0 / 0.7),
+    0 0 22px rgb(240 179 87 / 0.18);
+}
+
+.equity.is-leader .equity__value {
+  color: var(--lamp);
+}
+
+.equity.is-leader .equity__bar > i {
+  background: var(--lamp);
+}
+
+.equity.is-dead {
+  opacity: 0.6;
+}
+
+.equity.is-dead .equity__value {
+  color: var(--faint);
+}
+
+/* ── Кролик ── */
+
+/* Карты «кролика» бледнее настоящих: их не было в раздаче. */
+.board__card.is-rabbit {
+  opacity: 0.6;
+  filter: saturate(0.5) brightness(0.92);
+}
+
+.rabbit-anchor {
+  position: absolute;
+  z-index: 5;
+  width: 0;
+  height: 0;
+}
+
+.rabbit-btn {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px 9px 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px dashed rgb(240 179 87 / 0.42);
+  background: rgb(10 14 12 / 0.62);
+  color: var(--muted);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    color 160ms,
+    border-color 160ms,
+    background-color 160ms;
+}
+
+.rabbit-btn svg {
+  color: var(--lamp);
+}
+
+.rabbit-btn:hover {
+  color: var(--text);
+  border-color: var(--lamp);
+  background: rgb(10 14 12 / 0.8);
+}
+
+.rabbit-btn:focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 3px;
+}
+
+.rabbit-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.rabbit-caption {
+  position: absolute;
+  z-index: 5;
+  translate: -50% -50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  background: rgb(0 0 0 / 0.38);
+  color: var(--muted);
+  font-size: 15px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.rabbit-caption svg {
+  color: var(--lamp);
+}
