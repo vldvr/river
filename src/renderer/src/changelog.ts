@@ -23,7 +23,7 @@ export interface Release {
 export const CHANGELOG: Release[] = [
   {
     version: '1.7.0',
-    date: '2026-11-05',
+    date: '2026-11-06',
     title: 'Драма за столом',
     changes: [
       {
