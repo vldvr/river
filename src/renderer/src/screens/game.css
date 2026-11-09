@@ -1096,6 +1096,7 @@
 
 .settings__foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
@@ -1103,6 +1104,11 @@
   border-top: 1px solid var(--line);
   color: var(--faint);
   font-size: 13px;
+}
+
+.settings__links {
+  display: flex;
+  gap: 8px;
 }
 
 .sideact__hint {

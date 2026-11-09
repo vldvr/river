@@ -135,6 +135,7 @@ function ConfigSummary({ config: c }: { config: GameConfig }) {
 
 function ConfigForm({ config }: { config: GameConfig }) {
   const [c, setC] = useState(config)
+  const hideCards = useApp((s) => s.settings.hideCards)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => setC(config), [config])
 
@@ -251,7 +252,11 @@ function ConfigForm({ config }: { config: GameConfig }) {
         <div className="row">
           <div className="row__text">
             <span>Зрители видят карты</span>
-            <span className="row__hint">Зрители и выбывшие смотрят раздачу с открытыми картами</span>
+            <span className="row__hint">
+              {hideCards && c.spectatorsSeeCards !== false
+                ? 'Ты играешь «в одной комнате»: если зрители и выбывшие сидят рядом, с открытыми картами они увидят все руки'
+                : 'Зрители и выбывшие смотрят раздачу с открытыми картами'}
+            </span>
           </div>
           <Switch checked={c.spectatorsSeeCards !== false} onChange={(v) => update({ spectatorsSeeCards: v })} label="Зрители видят карты" />
         </div>

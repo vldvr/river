@@ -4,6 +4,7 @@ import { Toasts } from './components/Toasts'
 import { native } from './lib/native'
 import { loadRaw, save } from './lib/storage'
 import { Game } from './screens/Game'
+import { FeedbackModal } from './screens/FeedbackModal'
 import { Home } from './screens/Home'
 import { WhatsNew } from './screens/WhatsNew'
 import { useApp } from './store/app'
@@ -54,6 +55,7 @@ export function App() {
       {screen === 'home' ? <Home /> : <Game />}
       <Toasts />
       <WhatsNew />
+      <FeedbackModal />
       <div className="grain" aria-hidden="true" />
     </>
   )

@@ -1,4 +1,4 @@
-import { Category, type HandValue } from './evaluator.ts'
+import { Category, evaluateBest, type HandValue } from './evaluator.ts'
 import { rankOf, type Card } from './cards.ts'
 
 // Индекс = ранг (2..14).
@@ -56,8 +56,12 @@ export function handName(v: Pick<HandValue, 'category' | 'ranks'>): string {
   }
 }
 
-/** Короткая подсказка силы руки до ривера: по 2–4 картам тоже. */
+/**
+ * Подсказка силы руки по своим картам и доске. С флопа (5–7 карт) это точное название, то же,
+ * что подпишет руку на вскрытии; на префлопе, по двум картам, остаются пара или старшая карта.
+ */
 export function partialHandName(cards: Card[]): string {
+  if (cards.length >= 5) return handName(evaluateBest(cards))
   const rs = cards.map(rankOf).sort((x, y) => y - x)
   const counts = new Map<number, number>()
   for (const r of rs) counts.set(r, (counts.get(r) ?? 0) + 1)

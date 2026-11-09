@@ -5,6 +5,7 @@ import { Avatar } from '../components/Avatar'
 import { ChipStack } from '../components/Chips'
 import { Modal } from '../components/Modal'
 import { PlayingCard } from '../components/PlayingCard'
+import { openFeedback } from '../lib/feedback'
 import { formatCode } from '../lib/format'
 import { isMac } from '../lib/native'
 import { cancelJoin, createGame, forgetSavedGame, joinByAddress, joinByCode, resumeGame, savedGame } from '../net/connection'
@@ -125,7 +126,10 @@ export function Home() {
                 </motion.div>
               ) : error ? (
                 <motion.p key="err" className="form-error" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  {error}
+                  {error}{' '}
+                  <button className="link-btn" onClick={() => openFeedback('Ошибка', error)}>
+                    Сообщить о проблеме
+                  </button>
                 </motion.p>
               ) : null}
             </AnimatePresence>
@@ -136,6 +140,9 @@ export function Home() {
       <footer className="home__foot">
         <button className="home__version" onClick={() => useApp.setState({ notes: { seen: null, all: true } })} title="Что нового">
           Ривер <span className="num">{version}</span>
+        </button>
+        <button className="home__version" onClick={() => openFeedback('Главный экран')}>
+          Сообщить о проблеме
         </button>
         {update.state === 'ready' && <span className="home__update">Готово обновление {update.version}: откроется после перезапуска</span>}
         {update.state === 'available' && <span className="home__update">Вышла версия {update.version}</span>}

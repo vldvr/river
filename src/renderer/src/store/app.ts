@@ -43,6 +43,8 @@ export interface Settings {
   preflopSizes: number[]
   /** Быстрые ставки после флопа, в процентах банка. */
   postflopSizes: number[]
+  /** «В одной комнате»: свои карты рубашкой вверх, пока на них не наведёшь или не зажмёшь пробел. */
+  hideCards: boolean
 }
 
 export type ConnState = 'idle' | 'connecting' | 'online' | 'reconnecting'
@@ -95,6 +97,8 @@ interface AppState {
   appVersion: string
   /** Окно патчноутов: что игрок уже видел, или весь список из настроек. */
   notes: { seen: string | null; all: boolean } | null
+  /** Окно «Сообщить о проблеме»: откуда открыли и какую ошибку видел игрок. */
+  feedback: { where: string; error: string | null } | null
   setProfile(p: Partial<ProfileState>): void
   setSettings(s: Partial<Settings>): void
   toast(text: string, tone?: Toast['tone']): void
@@ -126,6 +130,7 @@ const defaultSettings: Settings = {
   inBlinds: false,
   preflopSizes: [2, 2.5, 3, 4],
   postflopSizes: [33, 50, 75, 100],
+  hideCards: false,
 }
 
 function initialSettings(): Settings {
@@ -171,6 +176,7 @@ export const useApp = create<AppState>((set, get) => ({
   update: { state: 'idle' },
   appVersion: '0.0.0',
   notes: null,
+  feedback: null,
   setProfile(p) {
     const profile = { ...get().profile, ...p }
     save('profile', profile)

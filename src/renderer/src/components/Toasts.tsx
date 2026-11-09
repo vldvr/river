@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
+import { openFeedback } from '../lib/feedback'
 import { useApp } from '../store/app'
 
 export function Toasts() {
@@ -17,6 +18,17 @@ export function Toasts() {
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
           >
             {t.text}
+            {t.tone === 'error' && (
+              <button
+                className="toast__report"
+                onClick={() => {
+                  useApp.getState().dismissToast(t.id)
+                  openFeedback('Ошибка', t.text)
+                }}
+              >
+                Сообщить
+              </button>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>

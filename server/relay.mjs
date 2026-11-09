@@ -5,10 +5,11 @@
 //                                                   → {t:'send', conn, data} | {t:'close', conn}
 // Гость: /ws?role=guest&code=123456               ← {relay:'joined'}, дальше кадры хоста как есть
 //
-// Плюс рейтинг игроков: /api/*, см. accounts.mjs.
+// Плюс рейтинг игроков (/api/*, см. accounts.mjs) и отзывы игроков (/api/feedback, см. feedback.mjs).
 import { createServer } from 'node:http'
 import { WebSocketServer } from 'ws'
 import { ApiError, openAccounts } from './accounts.mjs'
+import { openFeedback } from './feedback.mjs'
 
 export const LIMITS = {
   rooms: 500,
@@ -36,10 +37,12 @@ const CLOSE = {
   tooFast: 4429,
 }
 
-export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, trustProxy = false, db = ':memory:', now } = {}) {
+/** feedback: {telegram: {token, chat}, fetch} для отзывов игроков в Телеграм (без него отзывы только копятся в базе). */
+export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, trustProxy = false, db = ':memory:', now, feedback: feedbackOpts = {} } = {}) {
   /** @type {Map<string, {secret: string, host: import('ws').WebSocket, guests: Map<number, import('ws').WebSocket>, nextId: number}>} */
   const rooms = new Map()
   const accounts = openAccounts(db, now ? { now } : undefined)
+  const feedback = openFeedback(db, { ...feedbackOpts, log, ...(now ? { now } : {}) })
   const ownsRoom = (code, secret) => typeof secret === 'string' && rooms.get(code)?.secret === secret
   const apiHits = new Map()
 
@@ -81,6 +84,7 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, 
       if (route === 'ticket') return reply(200, accounts.ticket(body))
       if (route === 'seat') return reply(200, accounts.seat(body))
       if (route === 'game') return reply(200, accounts.report(body, ownsRoom))
+      if (route === 'feedback') return reply(200, feedback.submit(body, ip))
       return reply(404, { error: 'not found' })
     } catch (err) {
       if (err instanceof ApiError) return reply(err.status, { error: err.message })
@@ -267,6 +271,9 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, 
       ws.ping()
     }
   }, LIMITS.pingMs)
+  // Отзывы, которые не дошли до Телеграма (он бывает недоступен), досылаем позже.
+  const redeliver = setInterval(() => feedback.retry(), 10 * 60_000)
+  redeliver.unref?.()
   const settler = setInterval(() => {
     try {
       accounts.settleStale()
@@ -281,11 +288,14 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, 
         port: http.address().port,
         rooms,
         accounts,
+        feedback,
         close: () =>
           new Promise((r) => {
             clearInterval(heartbeat)
             clearInterval(settler)
+            clearInterval(redeliver)
             accounts.close()
+            feedback.close()
             for (const ws of wss.clients) ws.terminate()
             wss.close()
             http.close(() => r())
@@ -297,7 +307,12 @@ export function createRelay({ port = 8080, host = '0.0.0.0', log = console.log, 
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT ?? 8080)
-  const relay = await createRelay({ port, trustProxy: process.env.TRUST_PROXY === '1', db: process.env.DB_FILE ?? 'river.db' })
+  const relay = await createRelay({
+    port,
+    trustProxy: process.env.TRUST_PROXY === '1',
+    db: process.env.DB_FILE ?? 'river.db',
+    feedback: { telegram: { token: process.env.TELEGRAM_BOT_TOKEN || null, chat: process.env.TELEGRAM_CHAT_ID || null } },
+  })
   console.log(`river relay on :${relay.port}`)
   const stop = async () => {
     await relay.close()

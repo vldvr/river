@@ -6,7 +6,7 @@ HOST=${1:-russia}
 DOMAIN=river.wkiseven.me
 cd "$(dirname "$0")"
 
-tar -czf - package.json relay.mjs accounts.mjs rating.mjs Dockerfile docker-compose.yml nginx.conf | ssh "$HOST" "mkdir -p /root/river-relay && tar -xzf - -C /root/river-relay"
+tar -czf - package.json relay.mjs accounts.mjs rating.mjs feedback.mjs Dockerfile docker-compose.yml nginx.conf | ssh "$HOST" "mkdir -p /root/river-relay && tar -xzf - -C /root/river-relay"
 
 ssh "$HOST" DOMAIN="$DOMAIN" bash -s <<'REMOTE'
 set -euo pipefail

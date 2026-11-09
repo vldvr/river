@@ -133,7 +133,7 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
     case 'start': {
       const seats: Record<number, SceneSeat> = {}
       for (const s of e.seats) {
-        seats[s.seat] = { seat: s.seat, id: s.id, stack: s.stack, bet: 0, folded: false, allIn: false, cards: null, label: null, handName: null }
+        seats[s.seat] = { seat: s.seat, id: s.id, stack: s.stack, bet: 0, folded: false, allIn: false, cards: null, label: null, handName: null, shown: false }
       }
       S.set({
         handNo: e.handNo,
@@ -289,7 +289,7 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
     case 'reveal': {
       e.hands.forEach((h, i) => {
         later(i * 160 * k, gen, () => {
-          useScene.getState().patchSeat(h.seat, { cards: [...h.cards] })
+          useScene.getState().patchSeat(h.seat, { cards: [...h.cards], shown: true })
           sound.play('place', { volume: 0.55 })
         })
       })
@@ -299,7 +299,7 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
 
     case 'showdown': {
       const seats = { ...S.seats }
-      for (const h of e.hands) if (seats[h.seat]) seats[h.seat] = { ...seats[h.seat]!, handName: h.name }
+      for (const h of e.hands) if (seats[h.seat]) seats[h.seat] = { ...seats[h.seat]!, handName: h.name, shown: true }
       S.set({ seats })
       await wait(T.showdown * k, gen)
       return
@@ -355,7 +355,7 @@ async function step(e: ViewEvent, view: TableView, k: number, revealed: boolean,
     }
 
     case 'show': {
-      S.patchSeat(e.seat, { cards: [...e.cards] })
+      S.patchSeat(e.seat, { cards: [...e.cards], shown: true })
       sound.play('place', { volume: 0.6 })
       await wait(T.show * k, gen)
       return

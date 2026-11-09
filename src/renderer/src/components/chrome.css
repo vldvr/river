@@ -39,6 +39,53 @@
   color: #f3c5b8;
 }
 
+.toast__report {
+  margin-left: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.feedback__text {
+  height: auto;
+  min-height: 120px;
+  padding: 10px 14px;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.feedback__note {
+  margin: 0;
+}
+
+.feedback__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--text);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

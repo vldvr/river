@@ -8,6 +8,15 @@ services:
     environment:
       # Порт открыт только на localhost, снаружи ходят через nginx: ему можно верить в X-Real-IP.
       TRUST_PROXY: '1'
+      # Отзывы игроков приходят разработчику в Телеграм. Токен бота и chat id лежат на сервере
+      # в /root/river-relay/.env (TELEGRAM_BOT_TOKEN=..., TELEGRAM_CHAT_ID=...). Без них отзывы копятся в базе.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    # С сервера часть адресов api.telegram.org не отвечает (и IPv6 тоже), а этот отвечает.
+    # Перестанет: проверить другие (curl --resolve api.telegram.org:443:<ip> ...), вписать в .env
+    # TELEGRAM_IP=<ip> и перезапустить. Отзывы тем временем ждут в базе и досылаются сами.
+    extra_hosts:
+      - 'api.telegram.org:${TELEGRAM_IP:-149.154.167.220}'
     volumes:
       # Рейтинги игроков. Бэкап: /root/river-relay/data/river.db
       - ./data:/app/data

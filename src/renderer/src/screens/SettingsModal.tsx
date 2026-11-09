@@ -5,6 +5,7 @@ import type { Card } from '../../../engine/index.ts'
 import { PlayingCard } from '../components/PlayingCard'
 import { Switch } from '../components/Switch'
 import { sound } from '../audio/sound'
+import { openFeedback } from '../lib/feedback'
 import { native } from '../lib/native'
 import { isOpen, UNLOCK_RULE, unlockHint, unlockLeft, type Unlock } from '../lib/cosmetics'
 import { useApp, type Accent, type Deck, type Felt } from '../store/app'
@@ -83,6 +84,14 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
         <Switch checked={s.reduceMotion} onChange={(v) => set({ reduceMotion: v })} label="Меньше движения" />
       </div>
 
+      <div className="row">
+        <div className="row__text">
+          <span>В одной комнате</span>
+          <span className="row__hint">Свои карты лежат рубашкой вверх, чтобы сосед не подсмотрел. Наведи на них или зажми пробел</span>
+        </div>
+        <Switch checked={s.hideCards} onChange={(v) => set({ hideCards: v })} label="В одной комнате" />
+      </div>
+
       <div className="field">
         <span className="field__label">Колода</span>
         <div className="segmented">
@@ -150,15 +159,26 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
         <span>
           Ривер <span className="num">{version}</span>
         </span>
-        <button
-          className="btn btn--sm"
-          onClick={() => {
-            onClose()
-            useApp.setState({ notes: { seen: null, all: true } })
-          }}
-        >
-          Что нового
-        </button>
+        <span className="settings__links">
+          <button
+            className="btn btn--sm"
+            onClick={() => {
+              onClose()
+              openFeedback('Настройки')
+            }}
+          >
+            Сообщить о проблеме
+          </button>
+          <button
+            className="btn btn--sm"
+            onClick={() => {
+              onClose()
+              useApp.setState({ notes: { seen: null, all: true } })
+            }}
+          >
+            Что нового
+          </button>
+        </span>
         {update.state === 'ready' && (
           <button className="btn btn--sm btn--primary" onClick={() => native?.update.install()}>
             Обновить до {update.version}

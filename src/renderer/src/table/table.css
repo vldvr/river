@@ -405,6 +405,20 @@
   margin-top: -70px;
 }
 
+/* «В одной комнате»: зона наведения над своими картами, с запасом вокруг веера. */
+.seat-cards__peek {
+  position: absolute;
+  left: -115px;
+  top: -90px;
+  width: 230px;
+  height: 178px;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .hero-hint {
   position: absolute;
   left: 676px;

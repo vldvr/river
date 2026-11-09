@@ -173,20 +173,30 @@ function TurnRing({ endsAt, total, hero }: { endsAt: number; total: number; hero
   )
 }
 
-/** Карты соседа: маленькие, у аватара; свои: крупные снизу по центру. */
+/**
+ * Карты соседа: маленькие, у аватара; свои: крупные снизу по центру.
+ * С onPeek свои карты прячутся («в одной комнате»): hidden кладёт их рубашкой вверх,
+ * а зона над ними с запасом сообщает, когда на неё навели курсор или палец.
+ */
 export const SeatCards = memo(function SeatCards({
   place,
   seat,
   best,
   showdown,
   back,
+  hidden = false,
+  onPeek,
 }: {
   place: SeatPlace
   seat: SceneSeat
   best: string[] | null
   showdown: boolean
   back?: string
+  hidden?: boolean
+  onPeek?(on: boolean): void
 }) {
+  // Карты убрали (фолд, конец раздачи), пока на них смотрели: подглядывание кончилось.
+  useEffect(() => () => onPeek?.(false), [onPeek])
   const cards = seat.cards
   const size = place.hero ? HERO_CARD : SMALL_CARD
   const spread = place.hero ? size.w * 0.64 : size.w * 0.5
@@ -206,11 +216,30 @@ export const SeatCards = memo(function SeatCards({
               exit={{ opacity: 0, y: place.hero ? -40 : 0, scale: 0.8, transition: { duration: 0.32 } }}
               transition={{ duration: 0.12 }}
             >
-              <PlayingCard card={c} w={size.w} h={size.h} shadow={sh} win={showdown && inBest} dim={showdown && !!best && !inBest} back={back} />
+              <PlayingCard
+                card={hidden ? null : c}
+                w={size.w}
+                h={size.h}
+                shadow={sh}
+                win={showdown && inBest}
+                dim={showdown && !!best && !inBest}
+                back={back}
+                flip={onPeek ? 0.18 : undefined}
+              />
             </motion.div>
           )
         })}
       </AnimatePresence>
+      {onPeek && (
+        <div
+          className="seat-cards__peek"
+          aria-label="Свои карты: наведи, чтобы посмотреть"
+          onPointerEnter={() => onPeek(true)}
+          onPointerLeave={() => onPeek(false)}
+          onPointerCancel={() => onPeek(false)}
+          onContextMenu={(e) => e.preventDefault()}
+        />
+      )}
     </div>
   )
 })

@@ -43,9 +43,11 @@ interface Props {
   className?: string
   /** Рубашка владельца карт. */
   back?: string
+  /** Сколько секунд длится переворот: при подглядывании быстрее. */
+  flip?: number
 }
 
-export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, flipIn, shadow, className, back }: Props) {
+export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, flipIn, shadow, className, back, flip = 0.5 }: Props) {
   const deck = useApp((s) => s.settings.deck)
   const faceUp = card !== null
   const rank = card ? (RANK_LABEL[card[0]!] ?? card[0]!) : ''
@@ -78,7 +80,7 @@ export const PlayingCard = memo(function PlayingCard({ card, w, h, dim, win, fli
         x: { duration: 0.42, ease: [0.16, 1, 0.3, 1], delay: flipIn?.delay ?? 0 },
         y: { duration: 0.42, ease: [0.16, 1, 0.3, 1], delay: flipIn && !win ? flipIn.delay : 0 },
         opacity: { duration: 0.25, delay: flipIn && !dim ? flipIn.delay : 0 },
-        rotateY: { duration: 0.5, ease: [0.65, 0, 0.35, 1], delay: flipIn ? flipIn.delay + 0.3 : 0 },
+        rotateY: { duration: flip, ease: [0.65, 0, 0.35, 1], delay: flipIn ? flipIn.delay + 0.3 : 0 },
       }}
       aria-label={card ? `${rank} ${SUIT_NAME[suit]}` : 'карта рубашкой вверх'}
       role="img"

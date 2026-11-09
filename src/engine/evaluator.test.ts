@@ -36,6 +36,28 @@ describe('evaluator', () => {
     expect(partialHandName(['Ks', 'Qd', '4c'])).toBe('Старшая карта: король')
   })
 
+  it('hint next to own cards matches the showdown name from the flop on', () => {
+    const cases: [string[], string][] = [
+      [['Ah', 'Kd', '2c', '7s', '9h'], 'Старшая карта: туз'],
+      [['Qs', 'Qd', '2c', '7s', '9h'], 'Пара дам'],
+      [['Js', 'Jd', '5h', '5c', '9h'], 'Две пары: валеты и пятёрки'],
+      [['8s', '8d', '8c', 'Kh', '2d'], 'Три восьмёрки'],
+      [['9s', 'Td', 'Jc', 'Qh', 'Kd', '2c'], 'Стрит до короля'],
+      [['Ah', '2d', '3c', '4s', '5h', 'Kd'], 'Стрит до пятёрки'],
+      [['Ah', 'Kh', '2h', '7h', '9h'], 'Флеш до туза'],
+      [['Ah', 'Kd', '2h', '7h', '9h', 'Qh'], 'Флеш до туза'],
+      [['8s', '8d', '8c', '2h', '2d'], 'Фулл-хаус: восьмёрки и двойки'],
+      [['8s', '8d', '8c', '2h', '2d', '2c', 'Ks'], 'Фулл-хаус: восьмёрки и двойки'],
+      [['7s', '7d', '7c', '7h', '2d'], 'Каре семёрок'],
+      [['9h', 'Th', 'Jh', 'Qh', 'Kh'], 'Стрит-флеш до короля'],
+      [['Ts', 'Js', 'Qs', 'Ks', 'As', '2d', '2c'], 'Роял-флеш'],
+    ]
+    for (const [cards, name] of cases) {
+      expect(partialHandName(cards), cards.join(' ')).toBe(name)
+      expect(partialHandName(cards)).toBe(handName(evaluateBest(cards)))
+    }
+  })
+
   it('agrees with pokersolver on random showdowns', () => {
     const rand = seededRandomInt(12345)
     for (let i = 0; i < 20_000; i++) {

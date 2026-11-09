@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { ChatCircleText, DotsThree, GearSix, SpeakerHigh, SpeakerSlash } from '@phosphor-icons/react'
+import { openFeedback } from '../lib/feedback'
 import { chips, clock, formatCode } from '../lib/format'
 import { isMac } from '../lib/native'
 import { send, isHost } from '../net/connection'
@@ -128,6 +129,14 @@ export function TopBar({ onSettings, onSide, onLeave, onProfile }: { onSettings(
                     {me.status === 'active' ? 'Отойти от стола' : 'Вернуться за стол'}
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setMenu(false)
+                    openFeedback('За столом')
+                  }}
+                >
+                  Сообщить о проблеме
+                </button>
                 <button
                   className="is-danger"
                   onClick={() => {

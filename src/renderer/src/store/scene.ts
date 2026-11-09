@@ -20,6 +20,8 @@ export interface SceneSeat {
   cards: (Card | null)[] | null
   label: { kind: SeatLabelKind; amount: number } | null
   handName: string | null
+  /** Карты этого места видят все: вскрыты на олл-ине, на шоудауне или показаны после раздачи. */
+  shown: boolean
 }
 
 export interface Flight {
@@ -122,6 +124,9 @@ export function sceneFromView(view: TableView, prev: Scene): Partial<Scene> {
   const stackOf = (id: string) => view.players.find((p) => p.id === id)?.stack ?? 0
   const seats: Record<number, SceneSeat> = {}
   const showdown = new Map((h.showdown ?? []).map((s) => [s.seat, s]))
+  const sameHand = prev.handNo === h.handNo
+  // Игрок в раздаче видит чужие карты, пока она идёт, только когда руки вскрыты на олл-ине.
+  const revealed = !h.done && !view.you.spectator && h.seats.some((s) => s.id !== view.you.id && !s.folded && !!s.cards)
   for (const s of h.seats) {
     seats[s.seat] = {
       seat: s.seat,
@@ -133,10 +138,10 @@ export function sceneFromView(view: TableView, prev: Scene): Partial<Scene> {
       cards: s.folded ? null : s.cards ? [...s.cards] : [null, null],
       label: s.lastAction ? { kind: s.lastAction.kind, amount: s.lastAction.amount } : null,
       handName: showdown.get(s.seat)?.name ?? null,
+      shown: !s.folded && (showdown.has(s.seat) || (revealed && !!s.cards) || (sameHand && !!prev.seats[s.seat]?.shown)),
     }
   }
   const winnerBest = h.done && h.winners.length ? (showdown.get(h.winners[0]!)?.best ?? null) : null
-  const sameHand = prev.handNo === h.handNo
   return {
     handNo: h.handNo,
     live: !h.done,
