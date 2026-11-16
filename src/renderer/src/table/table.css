@@ -547,7 +547,7 @@
 
 .actionbar__slider {
   display: grid;
-  grid-template-columns: 1fr 104px;
+  grid-template-columns: 1fr 148px;
   align-items: center;
   gap: 10px;
 }
@@ -815,4 +815,18 @@
 
 .rabbit-caption svg {
   color: var(--lamp);
+}
+
+.actionbar__entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.actionbar__entry .actionbar__amount {
+  width: 100%;
+  min-width: 0;
 }

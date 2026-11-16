@@ -1153,3 +1153,14 @@
   top: 24px;
   translate: 0 0;
 }
+
+.seat__nickname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat__rating {
+  flex-shrink: 0;
+}

@@ -174,7 +174,7 @@ function BjSeatView({
       </div>
       <div className="seat__plate">
         <span className="seat__name" title={`Эло: ${player.rating}, партий: ${player.ratingGames}`}>
-          {player.name}
+          <span className="seat__nickname" title={player.name}>{player.name}</span>
           <span className="seat__rating num">Эло {player.rating}</span>
         </span>
         <span className="seat__stack num">{player.status === 'busted' ? 'Без фишек' : player.status === 'sittingOut' ? 'Отошёл' : chips(player.stack)}</span>

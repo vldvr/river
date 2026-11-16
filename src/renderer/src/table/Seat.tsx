@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useRef } from 'react'
 import { WifiSlash, Crown } from '@phosphor-icons/react'
+import { rankOf } from '../../../engine/cards'
 import type { PlayerView } from '../../../protocol/index.ts'
 import { Avatar } from '../components/Avatar'
 import { PlayingCard } from '../components/PlayingCard'
@@ -86,7 +87,7 @@ export const Seat = memo(function Seat({ place, player, avatar, seat, acting, tu
 
       <div className="seat__plate">
         <span className="seat__name" title={`Эло: ${player.rating}, партий: ${player.ratingGames}`}>
-          {player.name}
+          <span className="seat__nickname" title={player.name}>{player.name}</span>
           <span className="seat__rating num">Эло {player.rating}</span>
         </span>
         {place.hero && !status && !seat?.allIn ? (
@@ -197,7 +198,7 @@ export const SeatCards = memo(function SeatCards({
 }) {
   // Карты убрали (фолд, конец раздачи), пока на них смотрели: подглядывание кончилось.
   useEffect(() => () => onPeek?.(false), [onPeek])
-  const cards = seat.cards
+  const cards = place.hero ? seat.cards?.slice().sort((a, b) => (b ? rankOf(b) : 0) - (a ? rankOf(a) : 0)) : seat.cards
   const size = place.hero ? HERO_CARD : SMALL_CARD
   const spread = place.hero ? size.w * 0.64 : size.w * 0.5
   const sh = shadowFor(place.cards, place.hero ? 12 : 7)

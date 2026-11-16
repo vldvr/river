@@ -7,6 +7,7 @@ import { native } from '../lib/native'
 import { send } from '../net/connection'
 import { useApp } from '../store/app'
 import { useScene } from '../store/scene'
+import { betInput, parseBetInput } from '../lib/betInput'
 
 type Pre = 'none' | 'checkFold' | 'callAny'
 
@@ -21,6 +22,10 @@ export function ActionBar() {
   const preflopSizes = useApp((s) => s.settings.preflopSizes)
   const postflopSizes = useApp((s) => s.settings.postflopSizes)
   const money = useMoney()
+  const inBlinds = useApp((s) => s.settings.inBlinds)
+  const bb = view?.blinds.bb ?? 1
+  const unit = inBlinds ? bb : 1
+  const amountRef = useRef<HTMLInputElement>(null)
 
   const heroSeat = view?.players.find((p) => p.id === you)?.seat ?? null
   const legal = view?.you.legal ?? null
@@ -33,6 +38,12 @@ export function ActionBar() {
 
   const [pre, setPre] = useState<Pre>('none')
   const [amount, setAmount] = useState(0)
+  const [draft, setDraft] = useState<string | null>(null)
+  function sizeTo(value: number | ((previous: number) => number)) {
+    setDraft(null)
+    setAmount(value)
+  }
+  useEffect(() => setDraft(null), [unit])
   const [sentKey, setSentKey] = useState<string | null>(null)
   const rejected = useApp((s) => s.rejected)
   useEffect(() => setSentKey(null), [rejected])
@@ -43,7 +54,7 @@ export function ActionBar() {
   useEffect(() => setPre('none'), [handNo])
 
   const potTotal = scenePot + Object.values(sceneSeats).reduce((s, x) => s + x.bet, 0)
-  const step = Math.max(1, view?.blinds.sb ?? 1)
+  const step = Math.max(1, Math.floor(bb / 2))
 
   const presets = useMemo(() => {
     if (!legal || !hand) return []
@@ -54,16 +65,19 @@ export function ActionBar() {
     // Размеры в блайндах годятся, пока на префлопе никто не повышал; дальше считаем от банка.
     const opening = hand.street === 'preflop' && hand.currentBet <= bb
     const list = opening
-      ? preflopSizes.map((x) => ({ label: `${String(x).replace('.', ',')} BB`, to: clamp(round(x * bb)) }))
+      ? preflopSizes.map((x) => {
+          const to = clamp(round(x * bb))
+          return { label: money(to), to }
+        })
       : postflopSizes.map((x) => ({ label: x === 100 ? 'Банк' : `${x}%`, to: potPart(x / 100) }))
     // Одинаковые суммы (всё упёрлось в минимум или в стек) показываем один раз.
     const seen = new Set<number>([legal.maxTo])
     const out = list.filter((p) => !seen.has(p.to) && seen.add(p.to))
     return [...out, { label: 'Олл-ин', to: legal.maxTo }]
-  }, [legal, hand, potTotal, step, view?.blinds.bb, preflopSizes, postflopSizes])
+  }, [legal, hand, potTotal, step, view?.blinds.bb, preflopSizes, postflopSizes, money])
 
   useEffect(() => {
-    if (myTurn && legal) setAmount(legal.minTo)
+    if (myTurn && legal) sizeTo(legal.minTo)
   }, [myTurn, legal?.minTo, turnKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function act(action: PlayerAction) {
@@ -100,7 +114,17 @@ export function ActionBar() {
     if (!visible || !legal) return
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
-      if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'text')) return
+      if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || document.querySelector('[aria-modal="true"]')) return
+      const editingAmount = el === amountRef.current
+      if (el.isContentEditable || el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !editingAmount && (el as HTMLInputElement).type !== 'range')) return
+      if (editingAmount && e.code !== 'Enter' && e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return
+      if (!editingAmount && /^\d$/.test(e.key) && legal.canRaise && amountRef.current) {
+        amountRef.current.focus()
+        setDraft(e.key)
+        setAmount(Number(e.key) * unit)
+        e.preventDefault()
+        return
+      }
       if (el.tagName === 'BUTTON' && (e.code === 'Enter' || e.code === 'Space')) return
       if (e.code === 'KeyF') act({ type: 'fold' })
       else if (e.code === 'KeyC') act(legal.canCheck ? { type: 'check' } : { type: 'call' })
@@ -108,8 +132,8 @@ export function ActionBar() {
       // Enter ставит рейз только из поля суммы: на кнопке Enter её же и нажимает,
       // и раньше «Колл» + Enter отправлял рейз раньше колла.
       else if (e.code === 'Enter' && el.classList.contains('actionbar__amount') && legal.canRaise) act(raiseAction())
-      else if (e.code === 'ArrowUp' || e.code === 'ArrowRight') setAmount((a) => Math.min(legal.maxTo, a + (view?.blinds.bb ?? 1)))
-      else if (e.code === 'ArrowDown' || e.code === 'ArrowLeft') setAmount((a) => Math.max(legal.minTo, a - (view?.blinds.bb ?? 1)))
+      else if (e.code === 'ArrowUp' || e.code === 'ArrowRight') sizeTo((a) => Math.max(legal.minTo, Math.min(legal.maxTo, a + step)))
+      else if (e.code === 'ArrowDown' || e.code === 'ArrowLeft') sizeTo((a) => Math.max(legal.minTo, Math.min(legal.maxTo, a - step)))
       else return
       e.preventDefault()
     }
@@ -117,7 +141,7 @@ export function ActionBar() {
     return () => window.removeEventListener('keydown', onKey)
   }) // каждый рендер: нужны свежие amount и legal
 
-  const fill = legal && legal.maxTo > legal.minTo ? ((amount - legal.minTo) / (legal.maxTo - legal.minTo)) * 100 : 100
+  const fill = legal && legal.maxTo > legal.minTo ? Math.max(0, Math.min(100, ((amount - legal.minTo) / (legal.maxTo - legal.minTo)) * 100)) : 100
 
   return (
     <div className="actionbar-host">
@@ -135,7 +159,7 @@ export function ActionBar() {
               <div className="actionbar__sizing">
                 <div className="actionbar__presets">
                   {presets.map((p) => (
-                    <button key={p.label} className={`chip-btn ${amount === p.to ? 'is-on' : ''}`} onClick={() => setAmount(p.to)}>
+                    <button key={p.label} className={`chip-btn ${amount === p.to ? 'is-on' : ''}`} onClick={() => sizeTo(p.to)}>
                       {p.label}
                     </button>
                   ))}
@@ -149,23 +173,33 @@ export function ActionBar() {
                     step={step}
                     value={amount}
                     style={{ '--fill': `${fill}%` } as React.CSSProperties}
-                    onChange={(e) => setAmount(Number(e.target.value))}
+                    onChange={(e) => sizeTo(Number(e.target.value))}
                     onWheel={(e) => {
-                      const d = (view?.blinds.bb ?? 1) * (e.deltaY < 0 ? 1 : -1)
-                      setAmount((a) => Math.max(legal.minTo, Math.min(legal.maxTo, a + d)))
+                      const d = step * (e.deltaY < 0 ? 1 : -1)
+                      sizeTo((a) => Math.max(legal.minTo, Math.min(legal.maxTo, a + d)))
                     }}
                     aria-label="Размер ставки"
                   />
-                  <input
-                    className="input actionbar__amount num"
-                    type="number"
-                    min={legal.minTo}
-                    max={legal.maxTo}
-                    value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value) || legal.minTo)}
-                    onBlur={() => setAmount((a) => Math.max(legal.minTo, Math.min(legal.maxTo, a)))}
-                    aria-label="Сумма"
-                  />
+                  <label className="actionbar__entry">
+                    <input
+                      ref={amountRef}
+                      className="input actionbar__amount num"
+                      type="text"
+                      inputMode="decimal"
+                      value={draft ?? betInput(amount, unit)}
+                      onChange={(e) => {
+                        const text = e.target.value
+                        const parsed = parseBetInput(text, unit)
+                        if (parsed === undefined) return
+                        setDraft(text)
+                        setAmount(parsed ?? legal.minTo)
+                      }}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onBlur={() => sizeTo((a) => Math.max(legal.minTo, Math.min(legal.maxTo, Math.round(a))))}
+                      aria-label={`Сумма ${inBlinds ? 'в BB' : 'в фишках'}`}
+                    />
+                    <span>{inBlinds ? 'BB' : 'фиш.'}</span>
+                  </label>
                 </div>
               </div>
             )}
