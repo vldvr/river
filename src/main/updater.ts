@@ -1,21 +1,18 @@
 import { app, net } from 'electron'
 import electronUpdater from 'electron-updater'
-import { execFile, spawn } from 'node:child_process'
-import { createWriteStream, existsSync } from 'node:fs'
-import { access, constants, mkdir, rm, stat } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { access, constants, mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
-import { promisify } from 'node:util'
+import { prepareMacUpdate, type ReleaseAsset } from './macUpdate'
 import type { UpdateState } from '../preload/api'
 
 const REPO = 'vldvr/river'
-const run = promisify(execFile)
 
 interface Release {
   version: string
   url: string
-  assets: { name: string; size: number; browser_download_url: string }[]
+  assets: ReleaseAsset[]
 }
 
 export function isPortable(): boolean {
@@ -24,7 +21,7 @@ export function isPortable(): boolean {
 
 /**
  * Установщик Windows обновляется сам из GitHub Releases. На Mac штатный Squirrel без
- * подписи Apple не работает, поэтому там качаем zip и подменяем River.app сами.
+ * подписи Apple не работает, поэтому там готовим и подменяем River.app сами.
  * Портативная версия так не умеет: для неё только проверяем, вышла ли новая, и даём ссылку.
  */
 export function initUpdater(send: (s: UpdateState) => void) {
@@ -93,21 +90,12 @@ async function macUpdate(send: (s: UpdateState) => void) {
   const fallback = () => send({ state: 'available', version: rel.version, url: rel.url })
 
   const target = await writableBundle()
-  const asset = rel.assets.find((a) => a.name === `River-${rel.version}-mac-${process.arch}.zip`)
-  if (!target || !asset) return fallback()
+  if (!target) return fallback()
 
   send({ state: 'downloading', version: rel.version })
   try {
     await mkdir(dir, { recursive: true })
-    const zip = join(dir, asset.name)
-    const res = await net.fetch(asset.browser_download_url)
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
-    await pipeline(Readable.fromWeb(res.body as never), createWriteStream(zip))
-    if ((await stat(zip)).size !== asset.size) throw new Error('файл скачался не целиком')
-    await run('/usr/bin/ditto', ['-x', '-k', zip, dir])
-    await rm(zip, { force: true })
-    const fresh = join(dir, 'River.app')
-    await run('/usr/bin/codesign', ['--verify', '--deep', fresh])
+    const fresh = await prepareMacUpdate(target, dir, app.getVersion(), rel.version, process.arch, rel.assets, (url) => net.fetch(url))
     macPending = { app: fresh, target }
     app.on('will-quit', () => swapMacApp(false))
     send({ state: 'ready', version: rel.version })

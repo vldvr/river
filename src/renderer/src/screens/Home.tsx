@@ -7,7 +7,7 @@ import { Modal } from '../components/Modal'
 import { PlayingCard } from '../components/PlayingCard'
 import { openFeedback } from '../lib/feedback'
 import { formatCode } from '../lib/format'
-import { isMac } from '../lib/native'
+import { isMac, native } from '../lib/native'
 import { cancelJoin, createGame, forgetSavedGame, joinByAddress, joinByCode, resumeGame, savedGame } from '../net/connection'
 import { useApp } from '../store/app'
 import { ProfileEditor } from './ProfileEditor'
@@ -93,9 +93,9 @@ export function Home() {
           <div className="home__join">
             <div className="home__join-head">
               <span>{ipMode ? 'Войти по адресу' : 'Войти по коду'}</span>
-              <button className="home__switch" onClick={() => setIpMode((m) => !m)} disabled={busy}>
+              {native && <button className="home__switch" onClick={() => setIpMode((m) => !m)} disabled={busy}>
                 {ipMode ? 'По коду' : 'По IP'}
-              </button>
+              </button>}
             </div>
             <div className="home__join-row">
               {ipMode ? (

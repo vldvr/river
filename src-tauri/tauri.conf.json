@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "River",
+  "version": "../package.json",
+  "identifier": "com.vldvr.river.light",
+  "build": {
+    "beforeBuildCommand": "npm run build:light-web",
+    "frontendDist": "../dist/light",
+    "beforeDevCommand": "npm run web",
+    "devUrl": "http://localhost:5199"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Ривер",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 700,
+        "backgroundThrottling": "disabled",
+        "additionalBrowserArgs": "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=msWebOOUI,msPdfOOUI"
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app"
+    ],
+    "icon": [
+      "../resources/icon.png",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "signingIdentity": "-"
+    }
+  },
+  "mainBinaryName": "River"
+}

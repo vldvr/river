@@ -1,0 +1,27 @@
+[package]
+name = "river-light"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "River"
+path = "src/main.rs"
+
+[features]
+relay-qa = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+rusty-leveldb = "4"
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tempfile = "3"
+
+[profile.release]
+strip = true
+opt-level = "s"
+lto = "thin"

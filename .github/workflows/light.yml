@@ -1,0 +1,57 @@
+name: Light build
+
+# Проверочная сборка лёгкого Ривера (Tauri) без публикации: архивы остаются артефактами запуска.
+on:
+  push:
+    paths:
+      - 'src-tauri/**'
+      - 'src/renderer/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.web.config.ts'
+      - '.github/workflows/light.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, target: aarch64-apple-darwin, arch: mac-arm64 }
+          - { os: macos-latest, target: x86_64-apple-darwin, arch: mac-x64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, arch: win-x64 }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: rustup target add ${{ matrix.target }}
+      - run: npm ci
+      - name: Собрать
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then bundles="--bundles app"; else bundles="--no-bundle"; fi
+          npm run light:build -- --target ${{ matrix.target }} $bundles
+      - name: Упаковать zip
+        run: |
+          out="src-tauri/target/${{ matrix.target }}/release"
+          zip="$PWD/River-Light-${{ matrix.arch }}.zip"
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            codesign --verify --deep "$out/bundle/macos/River.app"
+            ditto -c -k --keepParent "$out/bundle/macos/River.app" "$zip"
+          else
+            (cd "$out" && 7z a -tzip "$(cygpath -w "$zip")" River.exe)
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: River-Light-${{ matrix.arch }}
+          path: River-Light-${{ matrix.arch }}.zip
+          retention-days: 7

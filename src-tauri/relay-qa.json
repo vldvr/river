@@ -1,0 +1,17 @@
+{
+  "identifier": "com.vldvr.river.relaytest",
+  "productName": "River Relay Test",
+  "build": {
+    "beforeBuildCommand": "npm run build:qa-web",
+    "frontendDist": "../dist/relay-qa"
+  },
+  "app": {
+    "security": {
+      "capabilities": [{
+        "identifier": "local-test",
+        "windows": ["main"],
+        "permissions": ["core:window:allow-is-minimized"]
+      }]
+    }
+  }
+}

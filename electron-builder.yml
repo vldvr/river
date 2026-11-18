@@ -25,6 +25,7 @@ win:
     - target: zip
       arch: [x64]
 nsis:
+  differentialPackage: store-asar
   oneClick: true
   perMachine: false
   runAfterFinish: true
@@ -40,7 +41,7 @@ mac:
   # Подписи Apple нет: подписываем ad-hoc, иначе на Apple Silicon macOS называет приложение повреждённым.
   identity: '-'
   hardenedRuntime: false
-  # zip нужен для самообновления: приложение качает его и подменяет River.app (см. src/main/updater.ts).
+  # Полный zip служит основой для патчей и запасным способом обновления.
   artifactName: River-${version}-mac-${arch}.${ext}
   target:
     - target: dmg

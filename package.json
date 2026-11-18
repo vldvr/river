@@ -1,6 +1,6 @@
 {
   "name": "river",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "description": "Ривер: техасский холдем для своей компании, без серверов",
   "author": "vldvr",
   "license": "MIT",
@@ -21,7 +21,12 @@
     "test": "vitest run",
     "sim": "node --experimental-strip-types tools/sim.ts",
     "pack:win": "npm run build && electron-builder --win --x64 --publish never",
-    "release:win": "npm run build && electron-builder --win --x64 --publish always"
+    "release:win": "npm run build && electron-builder --win --x64 --publish always",
+    "build:qa-web": "vite build --config vite.web.config.ts --mode relay-qa --outDir ../../dist/relay-qa --emptyOutDir --target safari15",
+    "build:qa-native": "npm exec --yes --package=@tauri-apps/cli@2.12.5 -- tauri build --config src-tauri/relay-qa.json --features relay-qa --bundles app",
+    "light:build": "npm exec --yes --package=@tauri-apps/cli@2.12.5 -- tauri build",
+    "light:dev": "npm exec --yes --package=@tauri-apps/cli@2.12.5 -- tauri dev",
+    "build:light-web": "vite build --config vite.web.config.ts --outDir ../../dist/light --emptyOutDir --target safari15"
   },
   "dependencies": {
     "@achingbrain/nat-port-mapper": "4.0.5",

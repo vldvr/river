@@ -68,8 +68,19 @@ jobs:
         run: |
           rm -rf release
           npx electron-builder --win --x64 --publish never
+      - name: Собрать патч Windows для SevenSave
+        run: |
+          base_tag=$(gh release list --exclude-drafts --exclude-pre-releases --limit 100 --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')
+          [[ "$base_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$base_tag" != "$TAG" ]] || exit 0
+          old_zip="River-${base_tag#v}-win-x64.zip"
+          old_assets=$(gh release view "$base_tag" --json assets --jq '.assets[].name')
+          grep -Fxq "$old_zip" <<< "$old_assets" || exit 0
+          gh release download "$base_tag" --pattern "$old_zip" --dir "$RUNNER_TEMP"
+          python tools/make-win-patch.py "$RUNNER_TEMP/$old_zip" "release/River-${TAG#v}-win-x64.zip" release
       - name: Загрузить артефакты в релиз
-        run: gh release upload "$TAG" release/*.exe release/*-win-x64.zip release/*.blockmap release/latest.yml --clobber
+        run: |
+          shopt -s nullglob
+          gh release upload "$TAG" release/*.exe release/*-win-x64.zip release/*.blocks.zip release/*.blockmap release/latest.yml --clobber
 
   mac:
     needs: draft
@@ -87,15 +98,76 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npx vitest run src/main/macUpdate.test.ts
       - name: Собрать dmg и zip
         run: |
           rm -rf release
           npx electron-builder --mac --publish never
+      - name: Собрать патчи от предыдущего публичного релиза
+        shell: bash
+        run: |
+          base_tag=$(gh release list --exclude-drafts --exclude-pre-releases --limit 100 --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')
+          [[ "$base_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$base_tag" != "$TAG" ]] || exit 0
+          old_assets=$(gh release view "$base_tag" --json assets --jq '.assets[].name')
+          for arch in arm64 x64; do
+            old_zip="River-${base_tag#v}-mac-$arch.zip"
+            grep -Fxq "$old_zip" <<< "$old_assets" || continue
+            gh release download "$base_tag" --pattern "$old_zip" --dir "$RUNNER_TEMP"
+            stem="release/River-${TAG#v}-mac-$arch"
+            zip_hash=$(shasum -a 256 "$stem.zip" | cut -d ' ' -f 1)
+            bash tools/make-mac-patch.sh "$RUNNER_TEMP/$old_zip" "$stem.zip" "$stem-from-${base_tag#v}-$zip_hash.rsync.gz"
+          done
       - name: Загрузить артефакты в релиз
-        run: gh release upload "$TAG" release/*.dmg release/*-mac-*.zip --clobber
+        shell: bash
+        run: |
+          shopt -s nullglob
+          gh release upload "$TAG" release/*.dmg release/*-mac-*.zip release/*.rsync.gz --clobber
+
+  # Лёгкий Ривер на Tauri. Его ставит только SevenSave, поэтому достаточно zip без установщика.
+  light:
+    needs: draft
+    strategy:
+      matrix:
+        include:
+          - { os: macos-latest, target: aarch64-apple-darwin, arch: mac-arm64 }
+          - { os: macos-latest, target: x86_64-apple-darwin, arch: mac-x64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, arch: win-x64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag || github.ref_name }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # rustup уже стоит на раннерах GitHub: сторонний action с токеном релиза не нужен.
+      - run: rustup target add ${{ matrix.target }}
+      - run: npm ci
+      - name: Собрать
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then bundles="--bundles app"; else bundles="--no-bundle"; fi
+          npm run light:build -- --target ${{ matrix.target }} $bundles
+      - name: Упаковать zip
+        run: |
+          out="src-tauri/target/${{ matrix.target }}/release"
+          zip="$PWD/River-Light-${TAG#v}-${{ matrix.arch }}.zip"
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            codesign --verify --deep "$out/bundle/macos/River.app"
+            ditto -c -k --keepParent "$out/bundle/macos/River.app" "$zip"
+          else
+            (cd "$out" && 7z a -tzip "$(cygpath -w "$zip")" River.exe)
+          fi
+          gh release upload "$TAG" "$zip" --clobber
 
   publish:
-    needs: [windows, mac]
+    needs: [windows, mac, light]
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
